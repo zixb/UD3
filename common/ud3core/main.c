@@ -85,7 +85,7 @@ int main() {
 	//calls that must always happen after updating the configuration/settings
 	configure_ZCD_to_PWM();
     
-    LED4_Write(1);
+    LED4_Write(LED4_ON);
 	
 
 	//Starting Tasks
