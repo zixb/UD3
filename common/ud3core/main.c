@@ -57,6 +57,9 @@ static void prvFreeRTOSSetup( void );
 
 int main() {
     
+    relay_write_bus(0);
+    relay_write_charge_end(0);
+
     prvFreeRTOSSetup();
     alarm_init();
 	system_fault_Control = 0; //this should suppress any start-up sparking until the system is ready
