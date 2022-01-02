@@ -79,7 +79,7 @@ void TASK_main(void *pvParameters){
             
             TERM_sendVT100Code(handle, _VT100_CURSOR_POS1, 0);
         
-            uint32_t cpuLoad = SYS_getCPULoadFine(taskStats, taskCount, sysTime);
+            uint32_t cpuLoad = SYS_getCPULoadFine(taskStats, taskCount, sysTime);   // DS: CPU Load as percent * 10
             ttprintf("%sbottom - %d\r\n%sTasks: \t%d\r\n%sCPU: \t%d,%d%%\r\n", TERM_getVT100Code(_VT100_ERASE_LINE_END, 0), xTaskGetTickCount(), TERM_getVT100Code(_VT100_ERASE_LINE_END, 0), taskCount, TERM_getVT100Code(_VT100_ERASE_LINE_END, 0), cpuLoad / 10, cpuLoad % 10);
             
             uint32_t heapRemaining = xPortGetFreeHeapSize();
@@ -91,11 +91,12 @@ void TASK_main(void *pvParameters){
             
             uint32_t currTask = 0;
             for(;currTask < taskCount; currTask++){
+                // DS: Skip over the idle task
                 if(strlen(taskStats[currTask].pcTaskName) != 4 || strcmp(taskStats[currTask].pcTaskName, "IDLE") != 0){
                     char name[configMAX_TASK_NAME_LEN+1];
                     strncpy(name, taskStats[currTask].pcTaskName, configMAX_TASK_NAME_LEN);
                      uint32_t load=0;
-                    if(sysTime>1000){
+                    if(sysTime>1000){   // DS: Should be configTICK_RATE_HZ instead of the magic 1000 number.
                         load = (taskStats[currTask].ulRunTimeCounter) / (sysTime/configTICK_RATE_HZ);
                     }
                     ttprintf("%s%d\r\x1b[%dC%s\r\x1b[%dC%s\r\x1b[%dC%d,%d\r\x1b[%dC%d\r\x1b[%dC%u\r\x1b[%dC%d\r\n", TERM_getVT100Code(_VT100_ERASE_LINE_END, 0), taskStats[currTask].xTaskNumber, 6, name, 7 + configMAX_TASK_NAME_LEN

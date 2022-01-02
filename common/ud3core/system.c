@@ -1,8 +1,11 @@
 
 #include "system.h"
 
-
+// DS: Returns the total non-idle time as percent of total time * 10
 uint32_t SYS_getCPULoadFine(TaskStatus_t * taskStats, uint32_t taskCount, uint32_t sysTime){
+    // DS: TODO: I think the next line should be if(sysTime < configTICK_RATE_HZ) to 
+    // avoid a divide by 0 below.  configTICK_RATE_HZ is 1000 so if sysTime is 500 to 999 then
+    // (sysTime/configTICK_RATE_HZ) will be 0 which is then used as the denominator below.
     if(sysTime<500) return 0;
     uint32_t currTask = 0;
     for(;currTask < taskCount; currTask++){

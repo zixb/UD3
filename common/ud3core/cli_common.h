@@ -81,9 +81,9 @@ struct config_struct{
     uint16_t ct1_ratio;
     uint16_t ct2_ratio;
     uint16_t ct3_ratio;
-    uint16_t ct1_burden;
-    uint16_t ct2_burden;
-    uint16_t ct3_burden;
+    uint16_t ct1_burden;        // Units are ohms * 10
+    uint16_t ct2_burden;        // Units are ohms * 10
+    uint16_t ct3_burden;        // Units are ohms * 10
     uint16_t lead_time;
     uint16_t start_freq;
     uint8_t  start_cycles;
@@ -109,7 +109,7 @@ struct config_struct{
     uint8_t enable_display;
     float pid_curr_p;
     float pid_curr_i;
-    uint16_t max_dc_curr;
+    uint16_t max_dc_curr;       // Units are amps * 10
     uint8_t ext_interrupter;
     uint8_t is_qcw;
     uint8_t pca9685;

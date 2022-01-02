@@ -44,10 +44,10 @@ enum I2T {
 
 #define AC_PRECHARGE_TIMEOUT 100  //
 
-#define BAT_PRECHARGE_BUS_SCHEME   0   //battery "directly" supplies bus voltage
-#define BAT_BOOST_BUS_SCHEME       1   //battery is boosted via SLR converter
-#define AC_PRECHARGE_BUS_SCHEME    2   //no batteries, mains powered
-#define AC_DUAL_MEAS_SCHEME        3   //measures the input voltage and the capacitor voltage
+#define BAT_PRECHARGE_BUS_SCHEME   0   //battery "directly" supplies bus voltage (not implemented)
+#define BAT_BOOST_BUS_SCHEME       1   //battery is boosted via SLR converter (not implemented)
+#define AC_PRECHARGE_BUS_SCHEME    2   //no batteries, mains powered (default)
+#define AC_DUAL_MEAS_SCHEME        3   //measures the input voltage and the capacitor voltage (not implemented)
 #define AC_NO_RELAY_BUS_SCHEME     4   //mains powered without a builtin precharging relay
 #define AC_PRECHARGE_FIXED_DELAY   5
 
@@ -63,8 +63,8 @@ enum I2T {
 #define relay_write_bus(val) Relay1_Write(val)
 #define relay_write_charge_end(val) Relay2_Write(val)
 
-#define relay_read_bus() Relay1_Read()
-#define relay_read_charge_end() Relay2_Read()
+#define relay_read_bus() Relay1_Read()              // DS: removed arg since it isn't used
+#define relay_read_charge_end() Relay2_Read()       // DS: removed arg since it isn't used
 
 volatile uint8 bus_command;
 

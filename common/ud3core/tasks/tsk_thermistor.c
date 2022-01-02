@@ -83,14 +83,16 @@ typedef struct{
 //temperature *128
 int16_t count_temp_table[TEMP_TABLE_SIZE];
 
+// DS: bits is 12 which is the number of bits in the ADC that converts the thermistor voltage to a digital value.
+// The ADC maps 12 bits to a voltage of 0 to 5 volts (maybe -.1 to 500.1) not sure...
 void calc_table_128(int16_t t_table[], uint8_t bits, uint16_t table_size, uint32_t B, uint32_t RN, uint16_t meas_curr_uA){
-	
 	int32_t max_cnt = 1 << bits;
-	uint32_t steps =  max_cnt / table_size;
 
-	float meas_current = meas_curr_uA * 1e-6;
+	uint32_t steps =  max_cnt / table_size; // DS: steps = 4096 / TEMP_TABLE_SIZE (32) = 128
 
-	float u_ref_mv = 5.0;
+	float meas_current = meas_curr_uA * 1e-6;   // DS: the current from the IDAC: 184 / 1000000 = .000184 amps
+
+	float u_ref_mv = 5.0;   // DS: I think the mv stands for measure voltage, not millivolts
 	float r_cnt;
 	float temp_cnt;
 	
@@ -98,13 +100,25 @@ void calc_table_128(int16_t t_table[], uint8_t bits, uint16_t table_size, uint32
 	int32_t i;
 	uint16_t w=0;
 	for(i=0;i<=max_cnt;i+=steps){
+        // DS: Convert voltage dac units to resistance.  u_ref_mv / meas_current is the
+        // total possible resistance, which is divided by the ADC range to get ohms per ADC
+        // unit, which is finally multiplied by i (the number of ADC units being calculated
+        // for this LUT node).
 		if(i>0){
-			r_cnt = u_ref_mv / max_cnt * i / meas_current;
+			r_cnt = u_ref_mv / max_cnt * i / meas_current;  // DS: 
 		}else{
 			r_cnt = 0;
 		}
 		
-		temp_cnt = (298.15/(1-(log(((float)RN/r_cnt))*(298.15/(float)B))))-273.15; 
+        // DS: Regarding the magic numbers below:
+        // 298.15 = 25 degrees Centigrade in Kelvin.  This is the standard temp for NTC's R25 measurement.
+        // -273.15 = absolute zero.  Subtracting this from degrees Kelvin converts to Centigrade.
+        // The equation itself is documented here: https://www.jameco.com/Jameco/workshop/TechTip/temperature-measurement-ntc-thermistors.html
+        // 1/T = 1/T0 + 1/B * ln(R/R0)
+        
+        // DS: bugfix: I rearranged the following code to avoid a divide by 0 when r_cnt is set to 0 above.
+        // note that log(a/b) = -log(b/a)...
+		temp_cnt = (298.15/(1+(log(((float)r_cnt/RN))*(298.15/(float)B))))-273.15; 
 		temp_cnt *= 128;
 		
 		t_table[w] = temp_cnt;
@@ -137,15 +151,17 @@ int32_t get_temp_128(int32_t counts) {
     }
 	uint32_t counts_window = counts_div * 128;
 
+    // DS: The following code is just doing a linear interpolation.  I think it could be rewritten as:
+    // int32_t a = count_temp_table[counts_div];
+    // int32_t b = count_temp_table[counts_div+1];
+    // return a + ((b - a) * (counts %128)) / 128;
 	return count_temp_table[counts_div] - (((int32_t)(count_temp_table[counts_div] - count_temp_table[counts_div+1]) * ((uint32_t)counts - counts_window)) / 128);
 
 }
 
 int32_t get_temp_counts(uint8_t channel){
     Therm_Mux_Select(channel);
-    vTaskDelay(50);     // DS: this used to delay just 20 ticks which wasn't long enough on my board.
-                        // The temps were all off by 10 degrees or so.  Once I changed this to 50 the 
-                        // temps were all within a degree of where they should be.
+    vTaskDelay(50);     // DS: bugfix - this used to delay just 20 ticks which wasn't long enough on my board.  The temps were all off by 10 degrees or so.  Once I changed this to 50 the temps were all within a degree or so.
     ADC_therm_StartConvert();
     vTaskDelay(50);
     int16_t temp = ADC_therm_GetResult16()-ADC_therm_Offset;
@@ -158,6 +174,11 @@ void run_temp_check(TEMP_FAULT * ret) {
 
     tt.n.temp1.value = get_temp_128(get_temp_counts(THERM_1)) / 128;
     tt.n.temp2.value = get_temp_128(get_temp_counts(THERM_2)) / 128;
+
+    // DS: TODO: The following lines are comparing a signed to an unsigned.  The values will be negative if
+    // the thermistor is not installed (usual case for temp2).  C will implicitly convert the signed value
+    // to a huge unsigned value for the comparison which causes the result to be true.  End result is that
+    // temp2_high will be true if it does not exist and will set an alarm.  TLDR: Add a (int32_t) cast to the configuration vars below
 
 	// check for faults
 	if (tt.n.temp1.value > configuration.temp1_max && configuration.temp1_max) {
@@ -201,6 +222,13 @@ void run_temp_check(TEMP_FAULT * ret) {
 	return;
 }
 
+// DS: configuration.idac is initialized to 185.  I think this comes from THERM_DAC_VAL (23)
+// multiplied by the IDAC's 8 ua per DAC count.  23 counts * 8ua per count = 184.  The IDAC is
+// configured at initialization to output a current of 23 DAC units which equals 184 micro amps.
+// configuration.ntc_r25 is the resistance of the thermistor at 25 degrees centigrade (10000 ohms).
+// configuration.ntc_b comes from the thermistor datasheet and is 3977 by default.  The 
+// recommended B57875S0103J002 thermistor has a B of 3460.  The B57867S0103J140 thermistor that 
+// I bought has a B of 3988.
 uint8_t callback_ntc(parameter_entry * params, uint8_t index, TERMINAL_HANDLE * handle){
     calc_table_128(count_temp_table, 12 , sizeof(count_temp_table) / sizeof(int16_t),
         configuration.ntc_b, configuration.ntc_r25, configuration.idac);
@@ -242,6 +270,7 @@ void calib_adc(){
         ADC_therm_StartConvert();
         vTaskDelay(50);
         cnt += ADC_therm_GetResult16();
+        // DS: The following "if" is not necessary.  Just do it after the loop.
         if(i==3){
             cnt /= 4;
             ADC_therm_SetOffset(cnt);
@@ -302,6 +331,9 @@ void tsk_thermistor_TaskProc(void *pvParameters) {
             sysfault.temp1 = 1;
         }
         
+        // DS: TODO: Shouldn't the next line be if(temp.fault2_cnt == 0) ?
+        // Yes, it should and Acobaugh already fixed this and Jens merged it into the 
+        // master_old branch.  I need to find out what branch I should be using for my dev work...
         if(temp.fault1_cnt == 0){
             if(sysfault.temp2==0){
                 alarm_push(ALM_PRIO_CRITICAL, warn_temp2_fault, tt.n.temp2.value);

@@ -29,6 +29,7 @@
 #include "interrupter.h"
 #include "tasks/tsk_min.h"
     
+// DS: These are the bus states.  Should be an enum
 #define BUS_OFF 0
 #define BUS_CHARGING 1
 #define BUS_READY 2

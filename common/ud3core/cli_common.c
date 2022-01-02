@@ -103,9 +103,9 @@ void init_config(){
     configuration.ct1_ratio = 600;
     configuration.ct2_ratio = 1000;
     configuration.ct3_ratio = 30;
-    configuration.ct1_burden = 33;
-    configuration.ct2_burden = 500;
-    configuration.ct3_burden = 33;
+    configuration.ct1_burden = 33;      // Ohms * 10
+    configuration.ct2_burden = 500;     // Ohms * 10
+    configuration.ct3_burden = 33;      // Ohms * 10
     configuration.lead_time = 200;
     configuration.start_freq = 630;
     configuration.start_cycles = 3;
@@ -132,7 +132,7 @@ void init_config(){
     configuration.enable_display = 0;
     configuration.pid_curr_p = 50;
     configuration.pid_curr_i = 5;
-    configuration.max_dc_curr = 0;
+    configuration.max_dc_curr = 0;      // Amps * 10
     configuration.ext_interrupter = 0;
     configuration.pca9685 = 0;
     configuration.max_fb_errors = 0;
@@ -245,7 +245,9 @@ parameter_entry confparam[] = {
     ADD_PARAM(PARAM_CONFIG  ,pdTRUE ,"pca9685"         , configuration.pca9685         , 0      ,1      ,0      ,NULL                        ,"0=off 1=on")
     ADD_PARAM(PARAM_CONFIG  ,pdTRUE ,"max_fb_errors"   , configuration.max_fb_errors   , 0      ,60000  ,0      ,NULL                        ,"0=off, numer of feedback errors per second to sysfault")
     ADD_PARAM(PARAM_CONFIG  ,pdTRUE ,"ntc_b"           , configuration.ntc_b           , 0      ,10000  ,0      ,callback_ntc                ,"NTC beta [k]")
+    // DS: TODO: The comment says kOhm, but the value is stored in ohms and the divisor is 0.  Shouldn't it be 1000?
     ADD_PARAM(PARAM_CONFIG  ,pdTRUE ,"ntc_r25"         , configuration.ntc_r25         , 0      ,33000  ,0      ,callback_ntc                ,"NTC R25 [kOhm]")
+    // DS: TODO: Shouldn't the following use callback_ntc to update the lookup table when the IDAC is changed?
     ADD_PARAM(PARAM_CONFIG  ,pdTRUE ,"ntc_idac"        , configuration.idac            , 0      ,2000   ,0      ,NULL                        ,"iDAC measured [uA]")
     ADD_PARAM(PARAM_CONFIG  ,pdFALSE,"d_calib"         , vdriver_lut                   , 0      ,0      ,0      ,NULL                        ,"For voltage measurement")
 };
@@ -541,6 +543,47 @@ uint8_t CMD_con(TERMINAL_HANDLE * handle, uint8_t argCount, char ** args) {
 
 /*****************************************************************************
 * Calibrate Vdriver
+* 
+* DS:
+* I spent a while trying to figure out what is going on here.  vdriver_lut[] is
+* a 9 node lookup table containing the millivolts at each node.  Each node is
+* 256 ADC units from the previous element, so it can be indexed by simply dividing
+* the ADC value by 256.  The fractional portion of the computed index is then used
+* to linearly interpolate to the next node like so:
+*
+* index = AdcValue / 256;
+* valueInMillivolts = vdriver_lut[index] + (vdriver_lut[index+1]-vdriver_lut[index]) * (AdcValue%256) / 256;
+* code similar to this can be found in read_driver_mv().
+*
+* What was more difficult was figuring out the magic numbers used in the code below.
+* First some details:
+* - The ADC is 12 bits wide so values range from 0 to 4095
+* - The voltages read by the ADC range from 0 to 5v
+* - The driver voltage goes through a voltage divider before going into the ADC
+*   so it is scaled by 1/11.
+*
+* This gives the following equations:
+* v = 55 * adc /4096
+* adc = 4096 * v / 55
+*
+* The code below is basically using the equation of a line to interpolate
+* millivolts at the node positions (the lookup values).  The equation of a line is y=mx+b.
+* Since both the voltage and the adc start at 0, we can discard the b term.  Setting
+* y to millivolts and x to the adc value, we have:
+* mv = deltaMv/deltaAdc * adc, where
+* deltaMv = change in millivolts.  Since we are measuring from 0, this is simply 
+*           the millivolts at the node 
+* deltaAdc = the change in actual ADC values.  Once again, this starts at 0, so 
+*           it is simply the measured ADC value at the node
+* adc is the position of the node where each node is separated by 256 adc units in the lut
+*
+* So to calculate the value at the 3rd node (which is near 10000mv) we have: 
+* deltaMv = 10000, deltaAdc = the measured ADC value, and adc = the position of the node = 3*256 = 768
+* So the value we store in lut[3] = (10000 / measured adc) * 768
+*
+* The maximum adc value that can be looked up is 8*256 = 2048.  This corresponds
+* to a DCIN voltage of 55 * 2048 / 4096 = 27.5 volts.  Anything over this will result 
+* in an overflow of the lut.
 ******************************************************************************/
 uint8_t CMD_calib(TERMINAL_HANDLE * handle, uint8_t argCount, char ** args) {
    // uint16_t vdriver_lut[9] = {0,3500,7000,10430,13840,17310,20740,24200,27657};
