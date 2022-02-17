@@ -74,18 +74,16 @@ int main() {
     eeprom_load(null_handle);
    
     
-	initialize_DMA();		  //sets up all DMA channels
-	initialize_interrupter(); //initializes hardware related to the interrupter
-	initialize_ZCD_to_PWM();  //initializes hardware related to ZCD to PWM
+	initialize_DMA();		    //sets up all DMA channels
+	initialize_interrupter();   //initializes hardware related to the interrupter
+	initialize_ZCD_to_PWM();    //initializes hardware related to ZCD to PWM
     
 	initialize_charging();
-
-	
 
 	//calls that must always happen after updating the configuration/settings
 	configure_ZCD_to_PWM();
     
-    LED4_Write(1);
+    LED4_Write(1);              // Turns off LED4 (Serial Data)
 	
 
 	//Starting Tasks

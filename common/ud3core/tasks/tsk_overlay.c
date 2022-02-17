@@ -188,7 +188,7 @@ void init_telemetry(){
     tt.n.temp2.gauge = TT_NO_TELEMETRY;
        
     tt.n.batt_i.name = "Current";
-    tt.n.batt_i.value = 0;
+    tt.n.batt_i.value = 0;              // Units are amps * 10
     tt.n.batt_i.min = 0;
     tt.n.batt_i.offset = 0;
     tt.n.batt_i.unit = TT_UNIT_A;
@@ -369,6 +369,7 @@ void show_overlay_100ms(TERMINAL_HANDLE * handle){
 	
 }
 
+// Sends all telemetry data for the gauges and charts
 void show_overlay_400ms(TERMINAL_HANDLE * handle) {
     if(portM->term_mode == PORT_TERM_TT){
         for(uint32_t i = 0;i<N_TELE;i++){
@@ -390,6 +391,7 @@ void show_overlay_400ms(TERMINAL_HANDLE * handle) {
             }
         }
 
+        // Sends the status of the bus, interrupter, power scheme, and sysfault
         if(portM->term_mode!=PORT_TERM_MQTT){
             send_status(tt.n.bus_status.value!=BUS_OFF,
                         interrupter.mode!=INTR_MODE_OFF,
@@ -657,14 +659,16 @@ uint8_t CMD_telemetry(TERMINAL_HANDLE * handle, uint8_t argCount, char ** args){
         int cnt=-1;
         for(uint8_t w=0;w<N_TELE;w++){
             if(strcmp(args[2],tt.a[w].name)==0){
+                // Here if the metric name given by the user matches one in the tt.a[] array.
                 for(uint8_t i=0;i<N_TELE;i++){
+                    // If the gauge number specified by the user matches one in the tt.a[] array, then set the gauge to TT_NO_TELEMETRY
                     if(n==tt.a[i].gauge)tt.a[i].gauge=TT_NO_TELEMETRY;
                 }
                 cnt=w;
                 break;
             }
         }
-        if(cnt==TT_NO_TELEMETRY){
+        if(cnt==TT_NO_TELEMETRY){   // TODO: Bug: This should be -1, not TT_NO_TELEMETRY
             ttprintf("Telemetry name not found\r\n"); 
         }else{
             tt.a[cnt].gauge = n;

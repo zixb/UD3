@@ -47,8 +47,8 @@ Its a 16 bit PWM clocked at 1MHz, so thats 1uS per count.
 #define MIN_VOL 0
     
 enum interrupter_DMA{
-    INTR_DMA_TR,
-    INTR_DMA_DDS
+    INTR_DMA_TR,        // transient mode
+    INTR_DMA_DDS        // synth mode
 };
 
 enum interrupter_mode{
@@ -71,14 +71,15 @@ enum interrupter_modulation{
 
 typedef struct
 {
-	uint16_t pw;
-	uint16_t prd;
+	uint16_t pw;                            // pulse width in usec
+	uint16_t prd;                           // period in usec
     enum interrupter_mode mode;
-    enum interrupter_burst burst_state;
+    enum interrupter_burst burst_state;     // Used by the burst timer callback to know if burst is on or off (toggles on every timer tick)
     enum interrupter_modulation mod;
     TimerHandle_t xBurst_Timer;
 } interrupter_params;
 
+// TODO: This should be defined in interrupter.c and an extern used here.
 interrupter_params interrupter;
 
 extern uint16 ch_prd[4], ch_cmp[4];
@@ -99,9 +100,7 @@ uint8_t callback_TRFunction(parameter_entry * params, uint8_t index, TERMINAL_HA
 uint8_t callback_TRPFunction(parameter_entry * params, uint8_t index, TERMINAL_HANDLE * handle);
 uint8_t callback_interrupter_mod(parameter_entry * params, uint8_t index, TERMINAL_HANDLE * handle);
 
-
 void interrupter_kill(void);
-
 void interrupter_unkill(void);
 
 #endif

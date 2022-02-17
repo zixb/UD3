@@ -93,47 +93,47 @@ enum uart_ivo{
 void init_config(){
     configuration.watchdog = 1;
     configuration.max_tr_pw = 1000;
-    configuration.max_tr_prf = 800;
+    configuration.max_tr_prf = 800;     // max transient mode pulse repetition frequency in hz
     configuration.max_qcw_pw = 1000;
-    configuration.max_tr_current = 400;
+    configuration.max_tr_current = 400; // amps
     configuration.min_tr_current = 100;
     configuration.max_qcw_current = 300;
     configuration.temp1_max = 40;
     configuration.temp2_max = 40;
-    configuration.ct1_ratio = 600;
+    configuration.ct1_ratio = 600;      // number of turns
     configuration.ct2_ratio = 1000;
     configuration.ct3_ratio = 30;
     configuration.ct1_burden = 33;      // Ohms * 10
     configuration.ct2_burden = 500;     // Ohms * 10
     configuration.ct3_burden = 33;      // Ohms * 10
-    configuration.lead_time = 200;
-    configuration.start_freq = 630;
+    configuration.lead_time = 200;      // nSec
+    configuration.start_freq = 630;     // khz * 10
     configuration.start_cycles = 3;
-    configuration.max_tr_duty = 100;
-    configuration.max_qcw_duty = 350;
+    configuration.max_tr_duty = 100;    // % * 10
+    configuration.max_qcw_duty = 350;   // % * 10
     configuration.temp1_setpoint = 30;
     configuration.temp2_setpoint = 30;
     configuration.temp2_mode = 0;
     configuration.ps_scheme = 2;
     configuration.autotune_s = 1;
     configuration.baudrate = 460800;
-    configuration.r_top = 500000;
+    configuration.r_top = 500000;       // kOhm * 1000
     strncpy(configuration.ud_name,"UD3-Tesla", sizeof(configuration.ud_name));
     strncpy(configuration.synth_filter,"f<0f>20000", sizeof(configuration.ud_name));  //No filter
     configuration.minprot = pdFALSE;
-    configuration.max_const_i = 0;
-    configuration.max_fault_i = 250;
+    configuration.max_const_i = 0;      // Amps * 10
+    configuration.max_fault_i = 250;    // Amps * 10
     configuration.ct2_type = CT2_TYPE_CURRENT;
-    configuration.ct2_voltage = 4000;
-    configuration.ct2_offset = 0;
-    configuration.ct2_current = 0;
+    configuration.ct2_voltage = 4000;   // millivolts
+    configuration.ct2_offset = 0;       // millivolts
+    configuration.ct2_current = 0;      // Amps * 10
     configuration.chargedelay = 1000;
     configuration.ivo_uart = UART_IVO_NONE;
     configuration.enable_display = 0;
     configuration.pid_curr_p = 50;
     configuration.pid_curr_i = 5;
     configuration.max_dc_curr = 0;      // Amps * 10
-    configuration.ext_interrupter = 0;
+    configuration.ext_interrupter = 0;  // Disable external interrupter
     configuration.pca9685 = 0;
     configuration.max_fb_errors = 0;
     
@@ -243,7 +243,7 @@ parameter_entry confparam[] = {
     ADD_PARAM(PARAM_CONFIG  ,pdTRUE ,"qcw_coil"        , configuration.is_qcw          , 0      ,1      ,0      ,NULL                        ,"Is QCW 1=true 0=false")
     ADD_PARAM(PARAM_CONFIG  ,pdTRUE ,"vol_mod"         , interrupter.mod               , 0      ,1      ,0      ,callback_interrupter_mod    ,"0=pw 1=current modulation")
     ADD_PARAM(PARAM_CONFIG  ,pdTRUE ,"pca9685"         , configuration.pca9685         , 0      ,1      ,0      ,NULL                        ,"0=off 1=on")
-    ADD_PARAM(PARAM_CONFIG  ,pdTRUE ,"max_fb_errors"   , configuration.max_fb_errors   , 0      ,60000  ,0      ,NULL                        ,"0=off, numer of feedback errors per second to sysfault")
+    ADD_PARAM(PARAM_CONFIG  ,pdTRUE ,"max_fb_errors"   , configuration.max_fb_errors   , 0      ,60000  ,0      ,NULL                        ,"0=off, number of feedback errors per second to sysfault")
     ADD_PARAM(PARAM_CONFIG  ,pdTRUE ,"ntc_b"           , configuration.ntc_b           , 0      ,10000  ,0      ,callback_ntc                ,"NTC beta [k]")
     // DS: TODO: The comment says kOhm, but the value is stored in ohms and the divisor is 0.  Shouldn't it be 1000?
     ADD_PARAM(PARAM_CONFIG  ,pdTRUE ,"ntc_r25"         , configuration.ntc_r25         , 0      ,33000  ,0      ,callback_ntc                ,"NTC R25 [kOhm]")
@@ -305,9 +305,15 @@ void update_ivo_uart(){
     case UART_IVO_NONE:
         break;
     case UART_IVO_TX:
+        // TODO: Bug? In the next routine, the help says "1 = rx inverted, tx not inverted".  
+        // The value of this switch case is 1 which should be named UART_IVO_RX.  Note that 
+        // even though this case is named UART_IVO_TX, it correctly inverts the RX line 
+        // (which is bit 1 of IVO_UART).  So basically UART_IVO_TX should have a value of 10, 
+        // and UART_IVO_RX should have a value of 1, and this case should be IVO_UART_RX.
         set_bit(IVO_UART_Control,1);
         break;
     case UART_IVO_RX:
+        // TODO: Bug? This actually inverts TX
         set_bit(IVO_UART_Control,0);
         break;
     case UART_IVO_RX_TX:
@@ -1018,7 +1024,6 @@ uint8_t CMD_signals(TERMINAL_HANDLE * handle, uint8_t argCount, char ** args){
         ttprintf("Vbus: %u mV Vbatt: %u mV\r\n", ADC_CountsTo_mVolts(ADC_active_sample_buf[0].v_bus),ADC_CountsTo_mVolts(ADC_active_sample_buf[0].v_batt));
         ttprintf("                                    \r");
         ttprintf("Ibus: %u mV Vdriver: %u mV\r\n\r\n", ADC_CountsTo_mVolts(ADC_active_sample_buf[0].i_bus),tt.n.driver_v.value);
-
     }while(Term_check_break(handle,250));
     
     TERM_sendVT100Code(handle, _VT100_RESET_ATTRIB, 0);

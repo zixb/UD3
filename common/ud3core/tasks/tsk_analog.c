@@ -52,10 +52,6 @@ xQueueHandle adc_data;
 
 TimerHandle_t xCharge_Timer;
 
-
-
-
-
 /* ------------------------------------------------------------------------ */
 /*
  * Place user included headers, defines and task global data in the
@@ -97,9 +93,17 @@ adc_sample_t *ADC_active_sample_buf = ADC_sample_buf_0;
 FastPID pid_current;
 
 rms_t current_idc;
+
+// TODO: Review this.  These values are placed into the Amux_ctrl control register.  They defne the lower 3 bits 
+// of the control register, which is fed into the AMuxHw_1 multiplexer to select the next input.
+// I'm not sure where these values came from.  The 0x05 value will write to the 3rd bit which is not used.
+// So for all intents and purposes, the following could just be {1,2,3,4}.
 uint8_t ADC_mux_ctl[4] = {0x05, 0x02, 0x03, 0x00};
 
 uint16_t vdriver_lut[9] = {0,3500,7000,10430,13840,17310,20740,24200,27657};
+
+// i2t is for the software fuse feature.  i2t is current squared * time, and is a 
+// common way of specifying how much energy a fuse/breaker can take before blowing.
 
 typedef struct
 {
@@ -112,21 +116,26 @@ typedef struct
 
 _i2t i2t;
 
+// Called when max_const_i or max_fault_i parameters are changed by user
 void i2t_set_limit(uint32_t const_current, uint32_t ovr_current, uint32_t limit_ms){
     i2t.leak = const_current * const_current;
     i2t.limit= floor((float)((float)limit_ms/NEW_DATA_RATE_MS)*(float)((ovr_current*ovr_current)-i2t.leak));
     i2t_set_warning(i2t.warning_level);
 }
 
+// TODO: Bug? I don't think there is a CLI param to set the warning level.  It is supposed 
+// to be initialized to 60% but i2t_init() is never called so I think it is always going to be 0?
 void i2t_set_warning(uint8_t percent){
     i2t.warning_level = percent;
     i2t.warning = floor((float)i2t.limit*((float)percent/100.0));
 }
 
+// Called by the "fuse_reset" CLI command
 void i2t_reset(){
     i2t.integral=0;
 }
 
+// TODO: Bug: I don't think this is actually called anywhere?
 void i2t_init(){
     i2t.integral=0;
     i2t.warning=0;
@@ -134,8 +143,9 @@ void i2t_init(){
     i2t.warning_level=60;
 }
 
+// Called by calculate_rms() which is called on a timer
 uint8_t i2t_calculate(){
-    uint32_t squaredCurrent = (uint32_t)tt.n.batt_i.value * (uint32_t)tt.n.batt_i.value;
+    uint32_t squaredCurrent = (uint32_t)tt.n.batt_i.value * (uint32_t)tt.n.batt_i.value;    // units are amps*10
     i2t.integral = i2t.integral + squaredCurrent;
 	if(i2t.integral > i2t.leak)
 	{
@@ -186,7 +196,8 @@ CY_ISR(ADC_data_ready_ISR) {
 	xSemaphoreGiveFromISR(adc_ready_Semaphore, NULL);
 }
 
-// DS: configuration.r_top is the value of the external resistors connected to 
+// TODO: I went off the deep end here with all these comments.  Clean this up.
+// configuration.r_top is the value of the external resistors connected to 
 // the bus "voltage -" and "bus voltage +" pins (r_bus parameter).  By default
 // this value is 500000.  BUSV_R_BOT is equal to 5000 which is equal to the value 
 // of the feedback resistor (r32 for the bus voltage sensor, r39 for the battery 
@@ -261,7 +272,7 @@ CY_ISR(ADC_data_ready_ISR) {
 // Vin measures the battery supply voltage while Vbus measures the voltage on the 
 // h-bridge for pre-charge functionality.
 //
-// A "fully differentiual amplifier" is defined as having a differential output in  
+// A "fully differential amplifier" is defined as having a differential output in  
 // addition to a differential input.  But in this case the output is relative to 
 // ground which makes this a simple "differential amplifier".  I'm not sure why Steve 
 // called it "fully differential".
@@ -293,7 +304,7 @@ CY_ISR(ADC_data_ready_ISR) {
 // 
 uint32_t read_bus_mv(uint16_t raw_adc) {
 	uint32_t bus_voltage;
-    // DS: I could be wrong, but I don't think BUSV_R_BOT should be added to configuration.rtop 
+    // TODO: Bug? I could be wrong, but I don't think BUSV_R_BOT should be added to configuration.rtop 
     // on the next line.  The bus voltage is read by a differential amplifier circuit with .01 
     // gain.  If 10v is applied, it will output 10000mv, but the equation below would output:
     // (500000 + 5000) * 100 / 5000 = 10100 = 10.1v which is NOT the expected 10.0v.
@@ -334,11 +345,14 @@ float CT1_Get_Current_f(uint8_t channel) {
 	}
 }
 
+// Initializes ptr with the first RMS value (given by init_val - usually 0).
 void init_rms_filter(rms_t *ptr, uint16_t init_val) {
 	ptr->rms = init_val;
 	ptr->sum_squares = 1UL * SAMPLES_COUNT * init_val * init_val;
 }
 
+// Computes the moving RMS using a "one Newton-Raphson sqrt" to avoid calling sqrt() (which is slow).
+// Ref: https://stackoverflow.com/a/28812301
 uint16_t rms_filter(rms_t *ptr, uint16_t sample) {
 	ptr->sum_squares -= ptr->sum_squares / SAMPLES_COUNT;
 	ptr->sum_squares += (uint32_t)sample * sample;
@@ -370,13 +384,15 @@ void calculate_rms(void) {
 		// read the bus voltage
 		tt.n.bus_v.value = read_bus_mv(ADC_active_sample_buf[i].v_bus) / 1000;
 
-		// read the battery current
+		// read the battery current.  
+        // Note that tt.n.batt_i.value is in amps * 10.  Dividing by 100 converts from ma to (amps * 10)
         if(configuration.ct2_type==CT2_TYPE_CURRENT){
 		    tt.n.batt_i.value = (((uint32_t)rms_filter(&current_idc, ADC_active_sample_buf[i].i_bus) * params.idc_ma_count) / 100);
         }else{
             tt.n.batt_i.value = ((((int32_t)rms_filter(&current_idc, ADC_active_sample_buf[i].i_bus)-params.ct2_offset_cnt) * params.idc_ma_count) / 100);
         }
 
+        // Divide by 10 to convert from amps*10 to amps.
 		tt.n.avg_power.value = tt.n.batt_i.value * tt.n.bus_v.value / 10;
 	}
     
@@ -475,9 +491,8 @@ void initialize_charging(void) {
 }
 
 
-// DS: This is called every time the analog task is run (which waits on adc_ready_Semaphore).  
+// This is called every time the analog task is run (which waits on adc_ready_Semaphore).  
 // The ADC generates 100000 samples per second (I think).
-
 void ac_precharge_bus_scheme(){
 	//we cant know the AC line voltage so we will watch the bus voltage climb and infer when its charged by it not increasing fast enough
 	//this logic is part of a charging counter
@@ -496,11 +511,11 @@ void ac_precharge_bus_scheme(){
 	if (charging_counter > AC_PRECHARGE_TIMEOUT) {
 		final_vbus = tt.n.bus_v.value;
 		delta_vbus = final_vbus - initial_vbus;
-        // DS: I verified that with a bus voltage of 18v, the charge_end relay is never triggered.  Apparently
+        // I verified that with a bus voltage of 18v, the charge_end relay is never triggered.  Apparently
         // the next line requires the voltage to be at least 20 volts.  If I set the bus to 24v then the precharge
         // relay turns on after the charge_delay timeout.
 		if ((delta_vbus < 4) && (tt.n.bus_v.value > 20) && tt.n.bus_status.value == BUS_CHARGING) {
-            // DS: So this waits until the bus isn't rising much anymore and _then_ waits for the charge_delay?
+            // TODO: Needs review.  So this waits until the bus isn't rising much anymore and _then_ waits for the charge_delay?
             // Since the bus isn't rising much anymore, then the caps must be charged.  Why also wait for the
             // charge_delay - which exists solely to provide time for the caps to charge?
             if(!timer_triggerd){
@@ -532,20 +547,20 @@ void ac_precharge_fixed_delay(){
     }    
 }
 
-// DS: This is called after the precharge period has expired.  
+// This is called after the precharge period has expired.  
 void vCharge_Timer_Callback(TimerHandle_t xTimer){
     timer_triggerd=0;
     if(bus_command== BUS_COMMAND_ON){
         if(relay_read_bus()){
             alarm_push(ALM_PRIO_INFO,warn_bus_ready, ALM_NO_VALUE);
-            relay_write_charge_end(1);      // DS: turn on the charge end relay to bypass the inrush precharge resistors
+            relay_write_charge_end(1);      // turn on the charge end relay to bypass the inrush precharge resistors
             tt.n.bus_status.value = BUS_READY;
             sysfault.charge=0;
             sysfault.bus_uv=0;
         }
     }else{
         relay_write_bus(0);
-        relay_write_charge_end(0);  // DS: bugfix - this used to be relay_read_charge_end(0) which makes no sense...
+        relay_write_charge_end(0);
         sysfault.charge=0;
         alarm_push(ALM_PRIO_INFO,warn_bus_off, ALM_NO_VALUE);
         tt.n.bus_status.value = BUS_OFF;
@@ -566,14 +581,14 @@ void control_precharge(void) { //this gets called from tsk_analogs.c when the AD
                 ac_precharge_bus_scheme();
             break;
             case AC_DUAL_MEAS_SCHEME:
-                ac_dual_meas_scheme();      // DS: Not implemented
+                ac_dual_meas_scheme();      // Not implemented
             break;
             case AC_PRECHARGE_FIXED_DELAY:
                 ac_precharge_fixed_delay();
             break;
         } 
 	} else {
-        // DS: Here if bus_command is BUS_COMMAND_OFF or BUS_COMMAND_FAULT.  I don't 
+        // TODO: Bug? Here if bus_command is BUS_COMMAND_OFF or BUS_COMMAND_FAULT.  I don't 
         // understand what the next code is doing.  It seems to be turning the bus
         // ON even through the user may have turned it off?  It appears to turn the bus
         // back on and starts the timer.  The timer code then turns the bus off when the
@@ -629,7 +644,7 @@ void tsk_analog_TaskProc(void *pvParameters) {
 
 	//adc_data = xQueueCreate(128, sizeof(ADC_sample));
     
-    // DS: configuration.chargedelay is the delay for the charge delay in ms.  Dividing by portTICK_PERIOD_MS
+    // configuration.chargedelay is the delay for the charge delay in ms.  Dividing by portTICK_PERIOD_MS
     // converts from ms to ticks.  Default charge timer delay is 1000 (1 sec).  
     xCharge_Timer = xTimerCreate("Chrg-Tmr", configuration.chargedelay / portTICK_PERIOD_MS, pdFALSE,(void * ) 0, vCharge_Timer_Callback);
 
@@ -654,7 +669,7 @@ void tsk_analog_TaskProc(void *pvParameters) {
 
 	for (;;) {
 		/* `#START TASK_LOOP_CODE` */
-        // DS: This blocks until adc_ready_Semaphore is available (which happens above in ADC_data_ready_ISR)
+        // This blocks until adc_ready_Semaphore is available (which happens above in ADC_data_ready_ISR)
 		xSemaphoreTake(adc_ready_Semaphore, portMAX_DELAY);
 		calculate_rms();
 

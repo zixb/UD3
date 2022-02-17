@@ -79,12 +79,14 @@ void WD_enable(uint8_t enable){
     } 
 }
 
+// This must be called before 1 second has expired to prevent the watchdog timer from firing and setting a sysfault.
 void WD_reset(){
     if(xWD_Timer!=NULL && configuration.watchdog){
         xTimerStart(xWD_Timer,0);
     }
 }
 
+// This must be called before 1 second has expired to prevent the watchdog timer from firing and setting a sysfault.
 void WD_reset_from_ISR(){
     if(xWD_Timer!=NULL && configuration.watchdog){
         xTimerStartFromISR(xWD_Timer, NULL);
@@ -157,6 +159,10 @@ void handle_no_fb(void){
     
 }
 
+// This is the 1 second watchdog timer.  This is called when the timer expires and 
+// disables the system.  To prevent this from happening the system must call WD_reset()
+// or WD_reset_from_ISR() before 1 second elapses.  The idea is to detect when a controller 
+// becomes unresponsive, and shut down the system if so.
 void vWD_Timer_Callback(TimerHandle_t xTimer){
     if(sysfault.watchdog==0){
         alarm_push(ALM_PRIO_CRITICAL, warn_watchdog, ALM_NO_VALUE);
@@ -201,7 +207,7 @@ void tsk_fault_TaskProc(void *pvParameters) {
 		/* `#START TASK_LOOP_CODE` */
 		handle_UVLO();
         handle_FAULT();
-        LED4_Write(0);
+        LED4_Write(0);      // DS: Turn ON Serial Data LED?  Bug: This seems backwards to me?
         handle_no_fb();
 		/* `#END` */
 		vTaskDelay(FAULT_LOOP_SPEED_MS / portTICK_PERIOD_MS);

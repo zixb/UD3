@@ -140,6 +140,17 @@ void initialize_DMA(void) {
 
 	/* Variable declarations for TR1_CL_DMA */
 	/* Move these variable declarations to the top of the function */
+
+    // TODO: I don't understand why this requires 2 TD's?  The source of each is the same and so is the destination.
+    // This may be a workaround for an old bug.  I found the following in an older version of the VDAC8 docs (v1.70):
+    // 
+    // Note For PSoC 5 silicon, a write of a new value to the DAC may result in an indeterminate value
+    // on the DAC output. To output the desired value, write or strobe the DAC twice with the same
+    // value. Because the first write may result in an indeterminate output, the time between the two
+    // writes should be minimized. This applies to writes by CPU, DMA, and strobe. The API
+    // VDAC8_SetValue() writes the value provided twice to mitigate this issue for CPU writes.
+    //
+    // The current version of the docs is 1.90 and no longer contains this paragraph.
 	uint8 TR1_CL_DMA_Chan;
 	uint8 TR1_CL_DMA_TD[2];
 	TR1_CL_DMA_Chan = TR1_CL_DMA_DmaInitialize(TR1_CL_DMA_BYTES_PER_BURST, TR1_CL_DMA_REQUEST_PER_BURST,

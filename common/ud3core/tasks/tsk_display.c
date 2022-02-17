@@ -22,6 +22,9 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+// This is the interface to a StripLights component (See the General tab in TopDesign.cysch).
+// This component is configured for an 8x8 grid of WS2812 LED light strips.
+
 #include "cyapicallbacks.h"
 #include <cytypes.h>
 
@@ -34,13 +37,8 @@
 #include "queue.h"
 #include "semphr.h"
 
-
 xTaskHandle tsk_display_TaskHandle;
 uint8 tsk_display_initVar = 0u;
-
-
-
-
 
 /* ------------------------------------------------------------------------ */
 /*
@@ -78,16 +76,16 @@ void display_bus_state(){
     switch(tt.n.bus_status.value){
         case BUS_OFF:
             if(tt.n.bus_v.value<40){
-                Disp_DrawRect(3,0,4,4,1,Disp_GREEN);        
+                Disp_DrawRect(3,0,4,4,1,Disp_GREEN);    // Green exclamation point
                 Disp_DrawRect(3,6,4,7,1,Disp_GREEN);
             }
         break;
         case BUS_TEMP1_FAULT:
-            Disp_DrawLine(0,0,7,7,Disp_RED);
+            Disp_DrawLine(0,0,7,7,Disp_RED);            // Blinking red?
             Disp_DrawLine(7,0,0,7,Disp_RED);
     		break;    
         default:
-            Disp_DrawRect(3,0,4,4,1,Disp_RED);        
+            Disp_DrawRect(3,0,4,4,1,Disp_RED);          // Red exclamation point
             Disp_DrawRect(3,6,4,7,1,Disp_RED);
         break;
         
@@ -110,6 +108,7 @@ uint8_t display_text(char *text,uint16_t len,int32_t *memory){
     return pdTRUE;
 }
 
+// Displays a bar chart of frequency response
 void display_synthmon(){
     Disp_MemClear(0);
     uint8_t freq[8];

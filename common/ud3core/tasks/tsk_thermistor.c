@@ -83,16 +83,16 @@ typedef struct{
 //temperature *128
 int16_t count_temp_table[TEMP_TABLE_SIZE];
 
-// DS: bits is 12 which is the number of bits in the ADC that converts the thermistor voltage to a digital value.
+// bits is 12 which is the number of bits in the ADC that converts the thermistor voltage to a digital value.
 // The ADC maps 12 bits to a voltage of 0 to 5 volts (maybe -.1 to 500.1) not sure...
 void calc_table_128(int16_t t_table[], uint8_t bits, uint16_t table_size, uint32_t B, uint32_t RN, uint16_t meas_curr_uA){
 	int32_t max_cnt = 1 << bits;
 
-	uint32_t steps =  max_cnt / table_size; // DS: steps = 4096 / TEMP_TABLE_SIZE (32) = 128
+	uint32_t steps =  max_cnt / table_size;     // steps = 4096 / TEMP_TABLE_SIZE (32) = 128
 
-	float meas_current = meas_curr_uA * 1e-6;   // DS: the current from the IDAC: 184 / 1000000 = .000184 amps
+	float meas_current = meas_curr_uA * 1e-6;   // the current from the IDAC: 184 / 1000000 = .000184 amps
 
-	float u_ref_mv = 5.0;   // DS: I think the mv stands for measure voltage, not millivolts
+	float u_ref_mv = 5.0;   // I think the mv stands for measure voltage, not millivolts
 	float r_cnt;
 	float temp_cnt;
 	
@@ -100,7 +100,7 @@ void calc_table_128(int16_t t_table[], uint8_t bits, uint16_t table_size, uint32
 	int32_t i;
 	uint16_t w=0;
 	for(i=0;i<=max_cnt;i+=steps){
-        // DS: Convert voltage dac units to resistance.  u_ref_mv / meas_current is the
+        // Convert voltage dac units to resistance.  u_ref_mv / meas_current is the
         // total possible resistance, which is divided by the ADC range to get ohms per ADC
         // unit, which is finally multiplied by i (the number of ADC units being calculated
         // for this LUT node).
@@ -110,13 +110,13 @@ void calc_table_128(int16_t t_table[], uint8_t bits, uint16_t table_size, uint32
 			r_cnt = 0;
 		}
 		
-        // DS: Regarding the magic numbers below:
+        // Regarding the magic numbers below:
         // 298.15 = 25 degrees Centigrade in Kelvin.  This is the standard temp for NTC's R25 measurement.
         // -273.15 = absolute zero.  Subtracting this from degrees Kelvin converts to Centigrade.
         // The equation itself is documented here: https://www.jameco.com/Jameco/workshop/TechTip/temperature-measurement-ntc-thermistors.html
         // 1/T = 1/T0 + 1/B * ln(R/R0)
         
-        // DS: bugfix: I rearranged the following code to avoid a divide by 0 when r_cnt is set to 0 above.
+        // Rearranged the following code to avoid a divide by 0 when r_cnt is set to 0 above.
         // note that log(a/b) = -log(b/a)...
 		temp_cnt = (298.15/(1+(log(((float)r_cnt/RN))*(298.15/(float)B))))-273.15; 
 		temp_cnt *= 128;
@@ -331,10 +331,7 @@ void tsk_thermistor_TaskProc(void *pvParameters) {
             sysfault.temp1 = 1;
         }
         
-        // DS: TODO: Shouldn't the next line be if(temp.fault2_cnt == 0) ?
-        // Yes, it should and Acobaugh already fixed this and Jens merged it into the 
-        // master_old branch.  I need to find out what branch I should be using for my dev work...
-        if(temp.fault1_cnt == 0){
+        if(temp.fault2_cnt == 0){
             if(sysfault.temp2==0){
                 alarm_push(ALM_PRIO_CRITICAL, warn_temp2_fault, tt.n.temp2.value);
             }

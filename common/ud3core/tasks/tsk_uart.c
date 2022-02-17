@@ -66,10 +66,11 @@ CY_ISR(isr_uart_tx) {
 }
 CY_ISR(isr_uart_rx) {
 	char c;
-    LED4_Write(1);
+    LED4_Write(1);      // DS: Turn off Serial Data LED
 	while (UART_GetRxBufferSize()) {
 		c = UART_GetByte();
 		if (c & 0x80) {
+            // Save the first byte of a midi command and reset the index to store the next byte
 			midi_count = 1;
 			midiMsg[0] = c;
 
@@ -82,13 +83,13 @@ CY_ISR(isr_uart_rx) {
 		}
 		switch (midi_count) {
 		case 1:
-			midiMsg[1] = c;
+			midiMsg[1] = c;             // Save the second byte of the midi command
 			midi_count = 2;
 			break;
 		case 2:
-			midiMsg[2] = c;
+			midiMsg[2] = c;             // Save the 3rd and final byte of the midi command
 			midi_count = 0;
-			if (midiMsg[0] == 0xF0) {
+			if (midiMsg[0] == 0xF0) {           // The binary sequence 0xf0, 0x0f, 0x00 is the keep alive message sent from Teslaterm
 				if (midiMsg[1] == 0x0F) {
 					WD_reset_from_ISR();
 					goto end;
@@ -137,7 +138,10 @@ void tsk_uart_TaskProc(void *pvParameters) {
 		/* `#START TASK_LOOP_CODE` */
 
 		if (xStreamBufferReceive(min_port[0].tx, &c, 1, portMAX_DELAY)) {
-            LED4_Write(1);
+            // Turn OFF serial data LED.  This has always seemed odd to me - why not 
+            // the other way around?  Turn ON the LED when a char is received.  I asked
+            // and the other devs prefer it this way to indicate the UD3 is working.
+            LED4_Write(1);      
 			UART_PutChar(c);
 			if (UART_GetTxBufferSize() == 4) {
 				xSemaphoreTake(tx_Semaphore, portMAX_DELAY);

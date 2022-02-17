@@ -115,7 +115,7 @@ uint16_t run_adc_sweep(uint16_t F_min, uint16_t F_max, uint16_t pulsewidth, uint
         return 0;
     }
     
-    interrupter_DMA_mode(INTR_DMA_TR);
+    interrupter_DMA_mode(INTR_DMA_TR);  // Set to transient mode
 
 	CT_MUX_Select(channel);
 	//units for frequency are 0.1kHz (so 1000 = 100khz).  Pulsewidth in uS
@@ -182,7 +182,7 @@ uint16_t run_adc_sweep(uint16_t F_min, uint16_t F_max, uint16_t pulsewidth, uint
 		}
 	}
 
-	//Draw Diagram
+	//Draw diagram on terminal
 
     if(portM->term_mode == PORT_TERM_VT100){
         braille_malloc(handle);

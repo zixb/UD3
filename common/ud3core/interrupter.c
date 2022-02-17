@@ -35,7 +35,7 @@
 #include <device.h>
 #include <math.h>
 
-uint16_t int1_prd, int1_cmp;
+uint16_t int1_prd, int1_cmp;    // connected via DMA to interrupter1 component
 uint16_t ch_prd[N_CHANNEL], ch_cmp[N_CHANNEL];
 uint8_t ch_cur[N_CHANNEL];
 
@@ -64,48 +64,42 @@ uint8_t ch_dma_TD[N_CHANNEL][N_TD];
 
 void interrupter_reconf_dma(enum interrupter_modulation mod){
     if(mod==INTR_MOD_PW){
+        ch_dma_Chan[0] = Ch1_DMA_DmaInitialize(MODULATION_PW_BYTES, MODULATION_REQUEST_PER_BURST,
+		    								   HI16(CYDEV_SRAM_BASE), HI16(CYDEV_PERIPH_BASE));
+        ch_dma_Chan[1] = Ch2_DMA_DmaInitialize(MODULATION_PW_BYTES, MODULATION_REQUEST_PER_BURST,
+	    									   HI16(CYDEV_SRAM_BASE), HI16(CYDEV_PERIPH_BASE));
+        ch_dma_Chan[2] = Ch3_DMA_DmaInitialize(MODULATION_PW_BYTES, MODULATION_REQUEST_PER_BURST,
+	    									   HI16(CYDEV_SRAM_BASE), HI16(CYDEV_PERIPH_BASE));
+        ch_dma_Chan[3] = Ch4_DMA_DmaInitialize(MODULATION_PW_BYTES, MODULATION_REQUEST_PER_BURST,
+	    									   HI16(CYDEV_SRAM_BASE), HI16(CYDEV_PERIPH_BASE));
+        for(uint8_t ch=0;ch<N_CHANNEL;ch++){
+            CyDmaTdSetConfiguration(ch_dma_TD[ch][0], 2, ch_dma_TD[ch][1], TD_AUTO_EXEC_NEXT);
+    	    CyDmaTdSetConfiguration(ch_dma_TD[ch][1], 2, ch_dma_TD[ch][2], TD_AUTO_EXEC_NEXT);
+	        CyDmaTdSetConfiguration(ch_dma_TD[ch][2], 2, ch_dma_TD[ch][3], TD_AUTO_EXEC_NEXT);
+	        CyDmaTdSetConfiguration(ch_dma_TD[ch][3], 2, ch_dma_TD[ch][0], Ch1_DMA__TD_TERMOUT_EN);  
         
-    ch_dma_Chan[0] = Ch1_DMA_DmaInitialize(MODULATION_PW_BYTES, MODULATION_REQUEST_PER_BURST,
-										   HI16(CYDEV_SRAM_BASE), HI16(CYDEV_PERIPH_BASE));
-    ch_dma_Chan[1] = Ch2_DMA_DmaInitialize(MODULATION_PW_BYTES, MODULATION_REQUEST_PER_BURST,
-										   HI16(CYDEV_SRAM_BASE), HI16(CYDEV_PERIPH_BASE));
-    ch_dma_Chan[2] = Ch3_DMA_DmaInitialize(MODULATION_PW_BYTES, MODULATION_REQUEST_PER_BURST,
-										   HI16(CYDEV_SRAM_BASE), HI16(CYDEV_PERIPH_BASE));
-    ch_dma_Chan[3] = Ch4_DMA_DmaInitialize(MODULATION_PW_BYTES, MODULATION_REQUEST_PER_BURST,
-										   HI16(CYDEV_SRAM_BASE), HI16(CYDEV_PERIPH_BASE));
-    for(uint8_t ch=0;ch<N_CHANNEL;ch++){
-        CyDmaTdSetConfiguration(ch_dma_TD[ch][0], 2, ch_dma_TD[ch][1], TD_AUTO_EXEC_NEXT);
-	    CyDmaTdSetConfiguration(ch_dma_TD[ch][1], 2, ch_dma_TD[ch][2], TD_AUTO_EXEC_NEXT);
-	    CyDmaTdSetConfiguration(ch_dma_TD[ch][2], 2, ch_dma_TD[ch][3], TD_AUTO_EXEC_NEXT);
-	    CyDmaTdSetConfiguration(ch_dma_TD[ch][3], 2, ch_dma_TD[ch][0], Ch1_DMA__TD_TERMOUT_EN);  
+            CyDmaTdSetAddress(ch_dma_TD[ch][0], LO16((uint32)&ch_prd[ch]), LO16((uint32)interrupter1_PERIOD_LSB_PTR));
+        	CyDmaTdSetAddress(ch_dma_TD[ch][1], LO16((uint32)&ch_cmp[ch]), LO16((uint32)interrupter1_COMPARE1_LSB_PTR));
+    	    CyDmaTdSetAddress(ch_dma_TD[ch][2], LO16((uint32)&ch_prd[ch]), LO16((uint32)interrupter1_COMPARE2_LSB_PTR));
+        	CyDmaTdSetAddress(ch_dma_TD[ch][3], LO16((uint32)&ch_prd[ch]), LO16((uint32)interrupter1_COUNTER_LSB_PTR));
         
-        CyDmaTdSetAddress(ch_dma_TD[ch][0], LO16((uint32)&ch_prd[ch]), LO16((uint32)interrupter1_PERIOD_LSB_PTR));
-    	CyDmaTdSetAddress(ch_dma_TD[ch][1], LO16((uint32)&ch_cmp[ch]), LO16((uint32)interrupter1_COMPARE1_LSB_PTR));
-    	CyDmaTdSetAddress(ch_dma_TD[ch][2], LO16((uint32)&ch_prd[ch]), LO16((uint32)interrupter1_COMPARE2_LSB_PTR));
-    	CyDmaTdSetAddress(ch_dma_TD[ch][3], LO16((uint32)&ch_prd[ch]), LO16((uint32)interrupter1_COUNTER_LSB_PTR));
-        
-        CyDmaChSetInitialTd(ch_dma_Chan[ch], ch_dma_TD[ch][0]);
-    }
-    
+            CyDmaChSetInitialTd(ch_dma_Chan[ch], ch_dma_TD[ch][0]);
+        }
     }else if(mod==INTR_MOD_CUR){
+        ch_dma_Chan[0] = Ch1_DMA_DmaInitialize(MODULATION_CUR_BYTES, MODULATION_REQUEST_PER_BURST,
+	    									   HI16(CYDEV_SRAM_BASE), HI16(CYDEV_SRAM_BASE));
+        ch_dma_Chan[1] = Ch2_DMA_DmaInitialize(MODULATION_CUR_BYTES, MODULATION_REQUEST_PER_BURST,
+	    									   HI16(CYDEV_SRAM_BASE), HI16(CYDEV_SRAM_BASE));
+        ch_dma_Chan[2] = Ch3_DMA_DmaInitialize(MODULATION_CUR_BYTES, MODULATION_REQUEST_PER_BURST,
+	    									   HI16(CYDEV_SRAM_BASE), HI16(CYDEV_SRAM_BASE));
+        ch_dma_Chan[3] = Ch4_DMA_DmaInitialize(MODULATION_CUR_BYTES, MODULATION_REQUEST_PER_BURST,
+	    									   HI16(CYDEV_SRAM_BASE), HI16(CYDEV_SRAM_BASE));
     
-    ch_dma_Chan[0] = Ch1_DMA_DmaInitialize(MODULATION_CUR_BYTES, MODULATION_REQUEST_PER_BURST,
-										   HI16(CYDEV_SRAM_BASE), HI16(CYDEV_SRAM_BASE));
-    ch_dma_Chan[1] = Ch2_DMA_DmaInitialize(MODULATION_CUR_BYTES, MODULATION_REQUEST_PER_BURST,
-										   HI16(CYDEV_SRAM_BASE), HI16(CYDEV_SRAM_BASE));
-    ch_dma_Chan[2] = Ch3_DMA_DmaInitialize(MODULATION_CUR_BYTES, MODULATION_REQUEST_PER_BURST,
-										   HI16(CYDEV_SRAM_BASE), HI16(CYDEV_SRAM_BASE));
-    ch_dma_Chan[3] = Ch4_DMA_DmaInitialize(MODULATION_CUR_BYTES, MODULATION_REQUEST_PER_BURST,
-										   HI16(CYDEV_SRAM_BASE), HI16(CYDEV_SRAM_BASE));
-    
-    for(uint8_t ch=0;ch<N_CHANNEL;ch++){
-        CyDmaTdSetConfiguration(ch_dma_TD[ch][0], 1, ch_dma_TD[ch][0], Ch1_DMA__TD_TERMOUT_EN);
-        
-        CyDmaTdSetAddress(ch_dma_TD[ch][0], LO16((uint32)&ch_cur[ch]), LO16((uint32)&ct1_dac_val[0]));
-        
-        CyDmaChSetInitialTd(ch_dma_Chan[ch], ch_dma_TD[ch][0]);
-    }
-        
+        for(uint8_t ch=0;ch<N_CHANNEL;ch++){
+            CyDmaTdSetConfiguration(ch_dma_TD[ch][0], 1, ch_dma_TD[ch][0], Ch1_DMA__TD_TERMOUT_EN);
+            CyDmaTdSetAddress(ch_dma_TD[ch][0], LO16((uint32)&ch_cur[ch]), LO16((uint32)&ct1_dac_val[0]));
+            CyDmaChSetInitialTd(ch_dma_Chan[ch], ch_dma_TD[ch][0]);
+        }
     }
 }
 
@@ -197,26 +191,22 @@ void configure_interrupter()
     interrupter_DMA_mode(INTR_DMA_DDS);         // set to synth mode by default
 }
 
-
 void interrupter_DMA_mode(uint8_t mode){
     switch(mode){
-        case INTR_DMA_TR:
-            CyDmaChDisable(ch_dma_Chan[0]);
-            CyDmaChDisable(ch_dma_Chan[1]);
-            CyDmaChDisable(ch_dma_Chan[2]);
-            CyDmaChDisable(ch_dma_Chan[3]);
+        case INTR_DMA_TR:       // transient mode: disable the 4 DDS channels, enable the int1_dma chan
+            for(int i=0; i<4; ++i)
+                CyDmaChDisable(ch_dma_Chan[i]);
             CyDmaChEnable(int1_dma_Chan, 1);
         break;
-        case INTR_DMA_DDS:
+            
+        case INTR_DMA_DDS:      // synth or sid mode
             if(interrupter.mod == INTR_MOD_PW){
                 CyDmaChDisable(int1_dma_Chan);
             }else{
                 CyDmaChEnable(int1_dma_Chan, 1);
             }
-            CyDmaChEnable(ch_dma_Chan[0], 1);
-            CyDmaChEnable(ch_dma_Chan[1], 1);
-            CyDmaChEnable(ch_dma_Chan[2], 1);
-            CyDmaChEnable(ch_dma_Chan[3], 1);
+            for(int i=0; i<4; ++i)
+                CyDmaChEnable(ch_dma_Chan[i], 1);
         break;
     }
 }
@@ -257,7 +247,7 @@ void interrupter_set_pw_vol(uint8_t ch, uint16_t pw, uint32_t vol){
 }
 
 
-
+// Used by AutoTune
 void interrupter_oneshot(uint32_t pw, uint32_t vol) {
     if(sysfault.interlock) return;
     
@@ -276,12 +266,14 @@ void interrupter_oneshot(uint32_t pw, uint32_t vol) {
 	CyGlobalIntDisable;
 	int1_prd = prd - 3;
 	int1_cmp = prd - pw - 3;
-	interrupter1_control_Control = 0b0001;
-	interrupter1_control_Control = 0b0000;
+	interrupter1_control_Control = 0b0001;      // Force an immendiate reset
+	interrupter1_control_Control = 0b0000;      // One pulse only
     CyGlobalIntEnable;
 }
 
-
+// Update the interrupter when the external interrupter status changes.  This is only called 
+// when configuration.ext_interrupter==1 or 2 (inverted) - never 0 (off).
+// Should probably test for 0 and return if so just in case.
 void interrupter_update_ext() {
 
 	ct1_dac_val[0] = params.max_tr_cl_dac_val;
@@ -294,22 +286,36 @@ void interrupter_update_ext() {
     uint16_t prd = param.offtime + pw;
 	/* Update Interrupter PWMs with new period/pw */
 	CyGlobalIntDisable;
-	int1_prd = prd - 3;
-	int1_cmp = prd - pw - 3;
+	int1_prd = prd - 3;         // DS: period is total length of the pulse in usec.  I don't know why they subtract 3 here.
+	int1_cmp = prd - pw - 3;    // cmp is the "on" time of the pulse in usec.
     
+    // TODO: Bug?  I don't think the following is correct.  According to the parameter help, configuration.ext_interrupter
+    // can be 0 for none, 1 for normal external interrupter, and 2 for inverted external interrupter mode.  Control bit 4
+    // (0b1000) appears to indicate inverted operation according to the hardware schematic (it is xor'ed with the external
+    // interrupter signal.  So why is the code below setting it to 1 for the NORMAL case, and 0 for the INVERTED case?
+    // Jens told Intra on the forum that the external interupter was a work in progress...
     if(configuration.ext_interrupter==1){
+        // Here for normal external interrupter mode
+        // 3rd bit is 1 to enable external trigger
+        // 4th bit is 1 to invert the external trigger.
 	    interrupter1_control_Control = 0b1100;
     }else{
-        interrupter1_control_Control = 0b0100;
+        // Here for inverted external interrupter mode
+        // 3rd bit is 1 to enable external trigger
+        // 4th bit is 1 to invert the external trigger.
+        interrupter1_control_Control = 0b0100;      
     }
     CyGlobalIntEnable;
 }
 
+// Called when the "ena_ext_int" parameter is changed by the user (which updates configuration.ext_interrupter)
 uint8_t callback_ext_interrupter(parameter_entry * params, uint8_t index, TERMINAL_HANDLE * handle){
     if(configuration.ext_interrupter){
+        // Here if external interrupter has been enabled
         alarm_push(ALM_PRIO_WARN,warn_interrupter_ext, configuration.ext_interrupter);
         interrupter_update_ext();
     }else{
+        // Here if external interrupter has been disabled
         uint8 sfflag = system_fault_Read();
         system_fault_Control = 0; //halt tesla coil operation during updates!
         interrupter1_control_Control = 0b0000;
@@ -318,6 +324,7 @@ uint8_t callback_ext_interrupter(parameter_entry * params, uint8_t index, TERMIN
     return pdPASS;
 }
 
+// called when the "vol_mod" parameter is changed.  Description says "0=pw 1=current modulation"
 uint8_t callback_interrupter_mod(parameter_entry * params, uint8_t index, TERMINAL_HANDLE * handle){
     uint8 sfflag = system_fault_Read();
     system_fault_Control = 0; //halt tesla coil operation during updates!
@@ -332,6 +339,12 @@ uint8_t callback_interrupter_mod(parameter_entry * params, uint8_t index, TERMIN
     return pdPASS;
 }
 
+// Updates the global int1_prd and int1_cmp vars which are connected via DMA to the int1 component.
+// Should be called if any of the following are changed:
+//    interrupter.pw
+//    interrupter.prd
+//    configuration.max_tr_pw
+//    params.min_tr_prd
 void update_interrupter() {
     
 	/* Check if PW = 0, this indicates that the interrupter should be shut off */
@@ -363,34 +376,44 @@ void update_interrupter() {
 	/* Update interrupter registers */
 	CyGlobalIntDisable;
 	if (interrupter.pw != 0) {
-		int1_prd = interrupter.prd - 3;
-		int1_cmp = interrupter.prd - limited_pw - 3;
+		int1_prd = interrupter.prd - 3;                 // The total period of the pulse in usec.  Not sure where the -3 comes from
+		int1_cmp = interrupter.prd - limited_pw - 3;    // The "on" time of the pulse
+        
+        // Force the interrupter1 component to update
 		if (interrupter1_control_Control == 0) {
-			interrupter1_control_Control = 0b0011;
-			interrupter1_control_Control = 0b0010;
+			interrupter1_control_Control = 0b0011;      // Reset counter right away
+			interrupter1_control_Control = 0b0010;      // Keep running the PWM generator (reloads counter after each PWM cycle)
 		}
 	}
 	CyGlobalIntEnable;
 }
 
 /*****************************************************************************
-* Callback if a transient mode parameter is changed
+* Callback if a transient mode parameter is changed (param.pw or param.pwd)
 * Updates the interrupter hardware
 ******************************************************************************/
 uint8_t callback_TRFunction(parameter_entry * params, uint8_t index, TERMINAL_HANDLE * handle) {
-    
+
+    // Keep the pulse width percent in sync with the pulse width.
+    // DS: pw is the pulse width specified in microseconds.
+    // pwp is the pulse width percent * 10
+    // configuration.max_tr_pw is the maximum transient mode pulse width in microseconds.
+    // So the 1000 multiplier is 100 (to convert from proportion to percent) * 10 because the result is percent * 10 (fixed point).
     uint32_t temp = (1000 * param.pw) / configuration.max_tr_pw;
     param.pwp = temp;
     
     switch(interrupter.mode){
         case INTR_MODE_OFF:
-        
         break;
+        
         case INTR_MODE_TR:
         	interrupter.pw = param.pw;
-        	interrupter.prd = param.pwd;
+        	interrupter.prd = param.pwd;    // TODO: Bug? Hmm...  notice this assigns pwd (whose description 
+                                            // says "pulsewidthdelay" to prd which is the pulse width period.
+                                            // perhaps the description should read "pulse width period"?
             update_interrupter();
         break;
+            
         default:
             if(configuration.ext_interrupter  && param.synth == SYNTH_OFF){
                 interrupter_update_ext();
@@ -430,12 +453,18 @@ uint8_t callback_TRPFunction(parameter_entry * params, uint8_t index, TERMINAL_H
 }
 
 /*****************************************************************************
-* Timer callback for burst mode
+* Timer callback for burst mode.
+* TODO: Review this.  Hmm... This appears to use the normal transient mode param.pw for the on
+* time for the interrupter.  This basically sets the pitch.  So this burst mode
+* just plays that pitch for the specified bon time?  Then waits for the specified
+* boff time?  I guess you could set the pulse width really wide and boff for a
+* long time to make very large sparks with time to cool off?
 ******************************************************************************/
 void vBurst_Timer_Callback(TimerHandle_t xTimer){
     uint16_t bon_lim;
     uint16_t boff_lim;
     if(interrupter.burst_state == BURST_ON){
+        // Here if burst is on and the timer has expired.  Turn burst off and wait the specified time.
         interrupter.pw = 0;
         update_interrupter();
         interrupter.burst_state = BURST_OFF;
@@ -446,6 +475,7 @@ void vBurst_Timer_Callback(TimerHandle_t xTimer){
         }
         xTimerChangePeriod( xTimer, boff_lim / portTICK_PERIOD_MS, 0 );
     }else{
+        // Here if burst is off.  Turn the burst on and set the timer for the specified on time.
         interrupter.pw = param.pw;
         update_interrupter();
         interrupter.burst_state = BURST_ON;
@@ -464,7 +494,9 @@ void vBurst_Timer_Callback(TimerHandle_t xTimer){
 uint8_t callback_BurstFunction(parameter_entry * params, uint8_t index, TERMINAL_HANDLE * handle) {
     if(interrupter.mode!=INTR_MODE_OFF){
         if(interrupter.xBurst_Timer==NULL && param.burst_on > 0){
+            // Turn on burst timer
             interrupter.burst_state = BURST_ON;
+            // TODO: a "Bust-Tmr" sounds interesting, but it should probably be "Burst-Tmr"
             interrupter.xBurst_Timer = xTimerCreate("Bust-Tmr", param.burst_on / portTICK_PERIOD_MS, pdFALSE,(void * ) 0, vBurst_Timer_Callback);
             if(interrupter.xBurst_Timer != NULL){
                 xTimerStart(interrupter.xBurst_Timer, 0);
@@ -476,6 +508,8 @@ uint8_t callback_BurstFunction(parameter_entry * params, uint8_t index, TERMINAL
                 interrupter.mode=INTR_MODE_OFF;
             }
         }else if(interrupter.xBurst_Timer!=NULL && !param.burst_on){
+            // Turn off burst timer, set pw to 0
+            // TODO: redundant "if" on next line.
             if (interrupter.xBurst_Timer != NULL) {
     			if(xTimerDelete(interrupter.xBurst_Timer, 200 / portTICK_PERIOD_MS) != pdFALSE){
     			    interrupter.xBurst_Timer = NULL;
@@ -490,6 +524,8 @@ uint8_t callback_BurstFunction(parameter_entry * params, uint8_t index, TERMINAL
                 }
             }
         }else if(interrupter.xBurst_Timer!=NULL && !param.burst_off){
+            // Turn off burst timer, set pw to param.pw
+            // TODO: redundant "if" on next line.
             if (interrupter.xBurst_Timer != NULL) {
     			if(xTimerDelete(interrupter.xBurst_Timer, 200 / portTICK_PERIOD_MS) != pdFALSE){
     			    interrupter.xBurst_Timer = NULL;
@@ -524,8 +560,8 @@ uint8_t CMD_tr(TERMINAL_HANDLE * handle, uint8_t argCount, char ** args) {
     if(strcmp(args[0], "start") == 0){
         interrupter_DMA_mode(INTR_DMA_TR);
         
-        interrupter.pw = param.pw;
-		interrupter.prd = param.pwd;
+        interrupter.pw = param.pw;      // Pulse width
+		interrupter.prd = param.pwd;    // Period
         update_interrupter();
 
 		interrupter.mode=INTR_MODE_TR;

@@ -71,9 +71,9 @@ volatile uint8_t qcw_reg;
 struct config_struct{
     uint8_t watchdog;
     uint16_t max_tr_pw;
-    uint16_t max_tr_prf;
+    uint16_t max_tr_prf;        // max transient pulse repetition frequency in hz
     uint16_t max_qcw_pw;
-    uint16_t max_tr_current;
+    uint16_t max_tr_current;    // amps
     uint16_t min_tr_current;
     uint16_t max_qcw_current;
     uint8_t temp1_max;
@@ -100,9 +100,9 @@ struct config_struct{
     uint16_t max_fault_i;
     uint32_t baudrate;
     uint8_t ct2_type;
-    uint16_t ct2_current;
-    uint16_t ct2_voltage;
-    uint16_t ct2_offset;
+    uint16_t ct2_current;       // Units are amps * 10
+    uint16_t ct2_voltage;       // Units are millivolts
+    uint16_t ct2_offset;        // Units are millivolts
     uint32_t r_top;
     uint16_t chargedelay;
     uint8_t ivo_uart;
@@ -110,7 +110,7 @@ struct config_struct{
     float pid_curr_p;
     float pid_curr_i;
     uint16_t max_dc_curr;       // Units are amps * 10
-    uint8_t ext_interrupter;
+    uint8_t ext_interrupter;    // Enable external interrupter (2=inverted)
     uint8_t is_qcw;
     uint8_t pca9685;
     uint16_t max_fb_errors;

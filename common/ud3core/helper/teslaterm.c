@@ -9,6 +9,7 @@
 #include "queue.h"
 #include "semphr.h"
 
+// All commands are formatted as 0xff, length in bytes, command ID
 uint8_t gaugebuf[] = {0xFF,0x04, TT_GAUGE,0x00,0x00,0x00};
 uint8_t buf32[] = {0xFF,0x06, TT_GAUGE32,0x00,0x00,0x00,0x00,0x00};
 uint8_t chartbuf[] = {0xFF,0x04, TT_CHART,0x00,0x00,0x00};
@@ -37,6 +38,7 @@ void send_gauge(uint8_t gauge, int16_t val, TERMINAL_HANDLE * handle){
     ttprintb(gaugebuf,sizeof(gaugebuf));
 }
 
+// Sends telemetry for a single 32 bit gauge.  Command is 0xff, 0x06, ...
 void send_gauge32(uint8_t gauge, int32_t val, TERMINAL_HANDLE * handle){
     buf32[2]=TT_GAUGE32;
     buf32[3]=gauge;
@@ -240,6 +242,7 @@ void send_chart_text_center(int16_t x, int16_t y, uint8_t color, uint8_t size, c
     ttprintf("%s",text);
 }
 
+// Sends varius status bits using command 0xff , 0x02
 void send_status(uint8_t bus_active, uint8_t transient_active, uint8_t bus_controlled,uint8_t killbit ,TERMINAL_HANDLE * handle) {
     statusbuf[2] = TT_STATUS;
 	statusbuf[3] = bus_active|(transient_active<<1)|(bus_controlled<<2)|(killbit<<3);

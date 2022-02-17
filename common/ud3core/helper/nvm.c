@@ -105,6 +105,8 @@ uint8_t nvm_write_buffer(uint16_t index, uint8_t* buffer, int32_t len){
         
         if(last_page!=page){
             CySetTemp();
+            // CyWriteRowData writes to flash memory (non-volatile so it remembers it's state even when power is off).
+            // I think NVM stands for non volatile memory?
             uint32_t rc = CyWriteRowData((uint8)NVM_ARRAY, last_page, page_content);
             CyFlushCache();
             if(rc) return pdFAIL;

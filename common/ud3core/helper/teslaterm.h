@@ -6,6 +6,7 @@
 #include "alarmevent.h"
 #include "TTerm.h"
 
+// Command ID's
 #define TT_GAUGE        1
 #define TT_GAUGE_CONF   2
 #define TT_CHART        3
