@@ -34,15 +34,6 @@ Its a 16 bit PWM clocked at 1MHz, so thats 1uS per count.
 #include "cli_basic.h"
 #include "timers.h"
 
-#define INTERRUPTER_CLK_FREQ 1000000
-
-/* DMA Configuration for int1_dma */
-#define int1_dma_BYTES_PER_BURST 8
-#define int1_dma_REQUEST_PER_BURST 1
-#define int1_dma_SRC_BASE (CYDEV_SRAM_BASE)
-#define int1_dma_DST_BASE (CYDEV_PERIPH_BASE)
-    
-    
 #define MAX_VOL (128<<16)
 #define MIN_VOL 0
     
@@ -53,20 +44,20 @@ enum interrupter_DMA{
 
 enum interrupter_mode{
     INTR_MODE_OFF=0,
-    INTR_MODE_TR,
-    INTR_MODE_BURST,
-    INTR_MODE_BLOCKED
+    INTR_MODE_TR,       // transient mode
+    INTR_MODE_BURST,    // burst mode
+//    INTR_MODE_BLOCKED   // TODO: not used???
 };
 
+// The current state of burst mode
 enum interrupter_burst{
     BURST_ON,
     BURST_OFF
 };
 
-
 enum interrupter_modulation{
-    INTR_MOD_PW=0,
-    INTR_MOD_CUR=1
+    INTR_MOD_PW=0,                      // The pulse widths are scaled down (modulated) by volume
+    INTR_MOD_CUR=1                      // The pulse width is left at full value and the bridge current is modulated by volume
 };
 
 typedef struct
@@ -76,21 +67,18 @@ typedef struct
     enum interrupter_mode mode;
     enum interrupter_burst burst_state;     // Used by the burst timer callback to know if burst is on or off (toggles on every timer tick)
     enum interrupter_modulation mod;
-    TimerHandle_t xBurst_Timer;
+    TimerHandle_t xBurst_Timer;             // The timer used for the bon and boff times in burst mode
 } interrupter_params;
+extern interrupter_params interrupter;
 
-// TODO: This should be defined in interrupter.c and an extern used here.
-interrupter_params interrupter;
-
-extern uint16 ch_prd[4], ch_cmp[4];
-
+void interrupter_kill(void);
+void interrupter_unkill(void);
 void initialize_interrupter(void);
 void configure_interrupter();
 void update_interrupter();
 void ramp_control(void);
 void interrupter_oneshot(uint32_t pw, uint32_t vol);
 void interrupter_update_ext();
-void interrupter_set_pw(uint8_t ch, uint16_t pw);
 void interrupter_set_pw_vol(uint8_t ch, uint16_t pw, uint32_t vol);
 void interrupter_DMA_mode(uint8_t mode);
 
@@ -99,8 +87,5 @@ uint8_t callback_BurstFunction(parameter_entry * params, uint8_t index, TERMINAL
 uint8_t callback_TRFunction(parameter_entry * params, uint8_t index, TERMINAL_HANDLE * handle);
 uint8_t callback_TRPFunction(parameter_entry * params, uint8_t index, TERMINAL_HANDLE * handle);
 uint8_t callback_interrupter_mod(parameter_entry * params, uint8_t index, TERMINAL_HANDLE * handle);
-
-void interrupter_kill(void);
-void interrupter_unkill(void);
 
 #endif
