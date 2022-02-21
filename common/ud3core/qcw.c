@@ -34,7 +34,17 @@
 #include "tasks/tsk_overlay.h"
 #include "tasks/tsk_midi.h"
 
-TimerHandle_t xQCW_Timer;
+typedef struct
+{
+    uint32_t time_start;
+    uint32_t time_stop;
+    uint32_t last_time;
+} timer_params;
+static timer_params timer;
+
+ramp_params volatile ramp;
+
+static TimerHandle_t xQCW_Timer;       // Timer to repeat qcw pulses
 
 void qcw_handle(){
     if(SG_Timer_ReadCounter() < timer.time_stop){
@@ -216,7 +226,7 @@ uint8_t CMD_ramp(TERMINAL_HANDLE * handle, uint8_t argCount, char ** args){
 }
 
 /*****************************************************************************
-* Timer callback for the QCW autofire
+* Timer callback for the QCW autofire.  This is called back every param.qcw_repeat ms
 ******************************************************************************/
 void vQCW_Timer_Callback(TimerHandle_t xTimer){
     qcw_regenerate_ramp();
@@ -249,9 +259,10 @@ uint8_t CMD_qcw(TERMINAL_HANDLE * handle, uint8_t argCount, char ** args){
     }
         
 	if(strcmp(args[0], "start") == 0){
-        
         SigGen_switch_synth(SYNTH_MIDI);
-        if(param.qcw_repeat>99){
+        
+        // <100 is single shot mode.  If > 99 then set up a time to repeat the pulse at the specified interval.
+        if(param.qcw_repeat > 99){
             if(xQCW_Timer==NULL){
                 xQCW_Timer = xTimerCreate("QCW-Tmr", param.qcw_repeat / portTICK_PERIOD_MS, pdFALSE,(void * ) 0, vQCW_Timer_Callback);
                 if(xQCW_Timer != NULL){
@@ -262,6 +273,7 @@ uint8_t CMD_qcw(TERMINAL_HANDLE * handle, uint8_t argCount, char ** args){
                 }
             }
         }else{
+            // Here for single shot mode
             qcw_regenerate_ramp();
 		    qcw_start();
             ttprintf("QCW single shot\r\n");
@@ -269,6 +281,7 @@ uint8_t CMD_qcw(TERMINAL_HANDLE * handle, uint8_t argCount, char ** args){
 		
 		return TERM_CMD_EXIT_SUCCESS;
 	}
+    
 	if(strcmp(args[0], "stop") == 0){
         if (xQCW_Timer != NULL) {
 				if(!QCW_delete_timer()){
@@ -280,5 +293,6 @@ uint8_t CMD_qcw(TERMINAL_HANDLE * handle, uint8_t argCount, char ** args){
         SigGen_switch_synth(param.synth);
 		return TERM_CMD_EXIT_SUCCESS;
 	}
+    
 	return TERM_CMD_EXIT_SUCCESS;
 }
