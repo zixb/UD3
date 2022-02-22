@@ -39,6 +39,7 @@
 // Tone generator channel status
 CHANNEL channel[N_CHANNEL];
 
+// Called by the 8kHz isr_midi clock
 CY_ISR(isr_synth) {
     uint32_t r = SG_Timer_ReadCounter();
     
@@ -321,10 +322,10 @@ void SigGen_switch_synth(uint8_t synth){
         if(param.synth==SYNTH_SID) param.synth = SYNTH_SID_QCW;
     }
     if(synth==SYNTH_OFF){
-        interrupter_DMA_mode(INTR_DMA_TR);
+        interrupter_DMA_mode(INTR_DMA_TR);          // transient mode
         if(configuration.ext_interrupter) interrupter_update_ext();
     }else if(synth==SYNTH_MIDI || synth==SYNTH_SID){
-        interrupter_DMA_mode(INTR_DMA_DDS);       
+        interrupter_DMA_mode(INTR_DMA_DDS);         // synth mode
     }
     tt.n.midi_voices.value=0;
     xQueueReset(qMIDI_rx);
@@ -333,9 +334,6 @@ void SigGen_switch_synth(uint8_t synth){
 }
 
 void Synthmon_MIDI(TERMINAL_HANDLE * handle){
-    
-    uint32_t freq=0;
-    
     TERM_sendVT100Code(handle, _VT100_CURSOR_DISABLE,0);
     TERM_sendVT100Code(handle, _VT100_CLS,0);
     ttprintf("Synthesizer monitor    [CTRL+C] for quit\r\n");
@@ -344,23 +342,26 @@ void Synthmon_MIDI(TERMINAL_HANDLE * handle){
         TERM_setCursorPos(handle, 3,1);
         
         for(uint8_t i=0;i<N_CHANNEL;i++){
-
-            freq= Midi_voice[i].freqCurrent/10;
-            uint8_t noteOrigin=Midi_voice[i].currNoteOrigin;
-            
+            // TODO: These duplicated lines appear to be just to erase the last value.  Can't we just use %-2u for this?
             TERM_sendVT100Code(handle, _VT100_CURSOR_SET_COLUMN, 0);
             ttprintf("Ch:   ");
             TERM_sendVT100Code(handle, _VT100_CURSOR_SET_COLUMN, 0);
             ttprintf("Ch: %u", i+1);
+            
+            // TODO: %-2u
             TERM_sendVT100Code(handle, _VT100_CURSOR_SET_COLUMN, 7);
             ttprintf("Freq:      ");
             TERM_sendVT100Code(handle, _VT100_CURSOR_SET_COLUMN, 7);
-            ttprintf("Freq: %u", freq);
+            ttprintf("Freq: %u", Midi_voice[i].freqCurrent / 10);
+            
+            // TODO: %-2u
+            uint8_t noteOrigin = Midi_voice[i].currNoteOrigin;
             TERM_sendVT100Code(handle, _VT100_CURSOR_SET_COLUMN, 20);
             ttprintf("Prog:   ");
             TERM_sendVT100Code(handle, _VT100_CURSOR_SET_COLUMN, 20);
             ttprintf("Prog: %u", channelData[noteOrigin].currProgramm);
-    
+
+            // TODO: %-17s
             MAPTABLE_HEADER* map = MAPPER_findHeader(channelData[noteOrigin].currProgramm);
             TERM_sendVT100Code(handle, _VT100_CURSOR_SET_COLUMN, 28);
             ttprintf("Name:                  ", map->name);
@@ -370,27 +371,18 @@ void Synthmon_MIDI(TERMINAL_HANDLE * handle){
             TERM_sendVT100Code(handle, _VT100_CURSOR_SET_COLUMN, 50);
             ttprintf("Vol: ");
 
+            // Convert from 7.16 fixed point volume to a row of 0 to 10 "o" chars.
             uint8_t cnt = (channel[i].volume>>16)/12;
-
-            for(uint8_t w=0;w<10;w++){
-                if(w<cnt){
-                    ttprintf("o");
-                }else{
-                    ttprintf(" ");
-                }
-            }
+            for(uint8_t w=0; w<10; w++)
+                ttprintf(w < cnt? "o": " ");
             ttprintf("\r\n");
         }
     }
     ttprintf("\r\n");
     TERM_sendVT100Code(handle, _VT100_CURSOR_ENABLE,0);    
-    
 }
 
 void Synthmon_SID(TERMINAL_HANDLE * handle){
-    
-    uint32_t freq=0;
-    
     TERM_sendVT100Code(handle, _VT100_CURSOR_DISABLE,0);
     TERM_sendVT100Code(handle, _VT100_CLS,0);
     ttprintf("Synthesizer monitor    [CTRL+C] for quit\r\n");
@@ -400,12 +392,8 @@ void Synthmon_SID(TERMINAL_HANDLE * handle){
         
         for(uint8_t i=0;i<SID_CHANNELS;i++){
             ttprintf("Ch:   Freq:      \r");
-            if(channel[i].volume>0){
-                freq=channel[i].freq;
-            }else{
-                freq=0;
-            }
-            ttprintf("Ch: %u Freq: %u",i+1,freq);             
+            ttprintf("Ch: %u Freq: %u", i+1, channel[i].volume > 0? channel[i].freq: 0);
+            
             TERM_sendVT100Code(handle, _VT100_CURSOR_SET_COLUMN, 20);
             ttprintf("Vol: ");
             
@@ -413,30 +401,34 @@ void Synthmon_SID(TERMINAL_HANDLE * handle){
             // the volume will be 0 to 127.  Dividing by 12 yields a value of 0 to 10.
             uint8_t cnt = (channel[i].volume >> 16) / 12;
 
-            for(uint8_t w=0;w<10;w++){
-                if(w<cnt){
-                    ttprintf("o");
-                }else{
-                    ttprintf(" ");
-                }
-            }
+            // Print a row of 0 to 10 "o"'s to represent the volume
+            for(uint8_t w=0; w<10; w++)
+                ttprintf(w < cnt? "o": " ");
             ttprintf("\r\n");
         }
     }
     ttprintf("\r\n");
     TERM_sendVT100Code(handle, _VT100_CURSOR_ENABLE,0);
-    
-    
 }
 
-
-
 uint8_t CMD_SynthMon(TERMINAL_HANDLE * handle, uint8_t argCount, char ** args){
-    if(param.synth == SYNTH_SID || param.synth == SYNTH_SID_QCW) Synthmon_SID(handle);
-    if(param.synth == SYNTH_MIDI || param.synth == SYNTH_MIDI_QCW) Synthmon_MIDI(handle);
-    if(param.synth == 0){
+    switch(param.synth)
+    {
+    case SYNTH_SID:
+    case SYNTH_SID_QCW:
+        Synthmon_SID(handle);
+        break;
+        
+    case SYNTH_MIDI:
+    case SYNTH_MIDI_QCW:
+        Synthmon_MIDI(handle);
+        break;
+        
+    default: 
         ttprintf("\r\nNo synthesizer active\r\n");   
+        break;
     }
+    
     return TERM_CMD_EXIT_SUCCESS;
 }
 
@@ -448,6 +440,3 @@ void SigGen_kill(){
         SigGen_setNoteTPR(ch,0);
 	}
 }
-
-
-
