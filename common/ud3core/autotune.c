@@ -252,7 +252,7 @@ uint16_t run_adc_sweep(uint16_t F_min, uint16_t F_max, uint16_t pulsewidth, uint
 	ttprintf("\r\nFound Peak at: %i00Hz\r\n", freq_resp->freq[max_curr_num]);
     uint16_t temp = freq_resp->freq[max_curr_num];
     vPortFree(freq_resp);
-    interrupter_DMA_mode(INTR_DMA_DDS);
+    interrupter_DMA_mode(INTR_DMA_DDS);     // synth or SID mode
     return temp;
 }
 

@@ -35,7 +35,7 @@ typedef struct
 {
     uint8_t changed;
     uint16_t index;
-    uint8_t data[400];
+    uint8_t data[400];  // Each index is 125 usec, value is 0 to 255 where 0=min power, 255=max power
 } ramp_params;
 extern ramp_params volatile ramp; //added volatile
 

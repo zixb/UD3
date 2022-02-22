@@ -62,7 +62,7 @@ int main() {
 	system_fault_Control = 0; //this should suppress any start-up sparking until the system is ready
 	init_config();
     EEPROM_1_Start();
-	SG_Timer_Start();
+	SG_Timer_Start();           // 32 bit counter running at 320kHz: should be good for ~3.7 hours before overflow
     
     null_port.type = PORT_TYPE_NULL;
     null_port.tx = NULL;

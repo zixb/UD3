@@ -88,7 +88,7 @@ struct config_struct{
     uint16_t start_freq;
     uint8_t  start_cycles;
     uint16_t max_tr_duty;
-    uint16_t max_qcw_duty;
+    uint16_t max_qcw_duty;      // % * 10
     uint16_t temp1_setpoint;
     uint16_t temp2_setpoint;
     uint8_t temp2_mode;
@@ -130,8 +130,8 @@ struct parameter_struct{
     uint16_t    tune_pw;
     uint16_t    tune_delay;
     uint16_t    offtime;
-    uint16_t    qcw_ramp;
-    uint8_t     qcw_holdoff;
+    uint16_t    qcw_ramp;       // slope * 100
+    uint8_t     qcw_holdoff;    // time before ramp starts in us * 125
     uint8_t     qcw_offset;
     uint8_t     qcw_max;
     uint16_t    qcw_repeat;

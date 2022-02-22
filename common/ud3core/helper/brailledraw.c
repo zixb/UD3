@@ -22,14 +22,16 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-// This implementats a VT100 graphic display.  Lines and points are drawn by setting a bit 
-// (one bit per pixel) in an offscreen pixmap.  This is later translated to chars on the
-// terminal to "draw" the buffer.
+//-----------------------------------------------------------------------------
+// This implements a monochrome graphic display on a VT100 terminal.  Lines and 
+// points are drawn by setting a bit (one bit per pixel) in an offscreen pixmap.
+// This is later translated to characters on the terminal to "draw" the buffer.
 //
 // The characters used are the Braille characters (U+2800 ... U+28FF) which contains 
-// all 256 possible patterns of an 8-dot Braille cell.
+// all 256 possible patterns of an 8x8-dot Braille cell.
 //
 // Reference: See https://github.com/asciimoo/drawille for a Python implementation.
+//-----------------------------------------------------------------------------
 
 #include "brailledraw.h"
 #include "cli_common.h"

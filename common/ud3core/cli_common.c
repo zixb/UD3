@@ -94,7 +94,7 @@ void init_config(){
     configuration.watchdog = 1;
     configuration.max_tr_pw = 1000;
     configuration.max_tr_prf = 800;     // max transient mode pulse repetition frequency in hz
-    configuration.max_qcw_pw = 1000;
+    configuration.max_qcw_pw = 1000;    // ms * 100
     configuration.max_tr_current = 400; // amps
     configuration.min_tr_current = 100;
     configuration.max_qcw_current = 300;
@@ -155,15 +155,15 @@ void init_config(){
     param.tune_delay = 50;
     param.offtime = 3;
     
-    param.qcw_repeat = 500;
+    param.qcw_repeat = 500;     // qcw pulse repeat time in ms.  <100 = single shot
     param.transpose = 0;
     param.mch = 0;
     param.synth = SYNTH_MIDI;
     
-    param.qcw_holdoff = 0;
-    param.qcw_max = 255;
-    param.qcw_offset = 0;
-    param.qcw_ramp = 200;
+    param.qcw_holdoff = 0;      // time before ramp starts in us * 125
+    param.qcw_max = 255;        // maximum Y value of ramp
+    param.qcw_offset = 0;       // vertical offset of start of ramp
+    param.qcw_ramp = 200;       // slope * 100
     
     i2t_set_limit(configuration.max_const_i,configuration.max_fault_i,10000);
     update_ivo_uart();

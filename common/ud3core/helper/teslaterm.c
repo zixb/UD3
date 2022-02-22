@@ -273,7 +273,4 @@ void tt_chart_init(CHART *chart, TERMINAL_HANDLE * handle){
         snprintf(buffer, sizeof(buffer), "%i", f);
     	send_chart_text_center(f+chart->offset_x,chart->offset_y+chart->height+20,TT_COLOR_WHITE,8,buffer, handle);
 	}
-   
-    
-
 }
