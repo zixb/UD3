@@ -54,8 +54,10 @@
  */
 static void prvFreeRTOSSetup( void );
 
-
 int main() {
+    
+    relay_write_bus(0);
+    relay_write_charge_end(0);
     
     prvFreeRTOSSetup();
     alarm_init();
@@ -83,7 +85,7 @@ int main() {
 	//calls that must always happen after updating the configuration/settings
 	configure_ZCD_to_PWM();
     
-    LED4_Write(1);              // Turns off LED4 (Serial Data)
+    LED4_Write(LED4_ON);
 	
 
 	//Starting Tasks
@@ -111,8 +113,7 @@ int main() {
         tsk_hwGauge_init();
     }
     
-    //CyGlobalIntEnable; //enables interrupts
-    alarm_push(ALM_PRIO_INFO, warn_general_startup, ALM_NO_VALUE);
+    alarm_push(ALM_PRIO_INFO, "INFO: UD3 startup", ALM_NO_VALUE);
 	vTaskStartScheduler();
     
 	for (;;) {

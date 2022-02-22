@@ -70,6 +70,7 @@ volatile uint8_t qcw_reg;
 
 struct config_struct{
     uint8_t watchdog;
+    uint16_t watchdog_timeout;
     uint16_t max_tr_pw;
     uint16_t max_tr_prf;        // max transient pulse repetition frequency in hz
     uint16_t max_qcw_pw;

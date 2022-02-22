@@ -66,7 +66,7 @@ CY_ISR(isr_uart_tx) {
 }
 CY_ISR(isr_uart_rx) {
 	char c;
-    LED4_Write(1);      // DS: Turn off Serial Data LED
+    LED4_Write(LED4_ON);
 	while (UART_GetRxBufferSize()) {
 		c = UART_GetByte();
 		if (c & 0x80) {
@@ -77,7 +77,7 @@ CY_ISR(isr_uart_rx) {
 			goto end;
 		} else if (!midi_count) {
             if(xStreamBufferSendFromISR(min_port[0].rx, &c, 1, 0)==0){
-                alarm_push(ALM_PRIO_WARN,warn_serial_overrun,ALM_NO_VALUE);   
+                alarm_push(ALM_PRIO_WARN, "COM: Serial buffer overrun",ALM_NO_VALUE);   
             }
 			goto end;
 		}
@@ -133,15 +133,12 @@ void tsk_uart_TaskProc(void *pvParameters) {
 	char c;
 
 	/* `#END` */
-    alarm_push(ALM_PRIO_INFO,warn_task_uart, ALM_NO_VALUE);
+    alarm_push(ALM_PRIO_INFO, "TASK: UART started", ALM_NO_VALUE);
 	for (;;) {
 		/* `#START TASK_LOOP_CODE` */
 
 		if (xStreamBufferReceive(min_port[0].tx, &c, 1, portMAX_DELAY)) {
-            // Turn OFF serial data LED.  This has always seemed odd to me - why not 
-            // the other way around?  Turn ON the LED when a char is received.  I asked
-            // and the other devs prefer it this way to indicate the UD3 is working.
-            LED4_Write(1);      
+            LED4_Write(LED4_ON);
 			UART_PutChar(c);
 			if (UART_GetTxBufferSize() == 4) {
 				xSemaphoreTake(tx_Semaphore, portMAX_DELAY);

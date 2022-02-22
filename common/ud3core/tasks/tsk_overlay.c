@@ -136,7 +136,7 @@ void init_telemetry(){
     tt.n.primary_i.min = 0;
     tt.n.primary_i.offset = 0;
     tt.n.primary_i.unit = TT_UNIT_A;
-    tt.n.primary_i.divider = 0;
+    tt.n.primary_i.divider = 1;
     tt.n.primary_i.high_res = pdFALSE;
     tt.n.primary_i.resend_time = TT_FAST;
     tt.n.primary_i.chart = 2;
@@ -443,13 +443,13 @@ void tsk_overlay_TaskProc(void *pvParameters) {
 	/* `#END` */
     switch(portM->term_mode){
         case PORT_TERM_TT:
-            alarm_push(ALM_PRIO_INFO,warn_task_TT_overlay, portM->num);
+            alarm_push(ALM_PRIO_INFO, "TASK: Overlay started TT", portM->num);
         break;
         case PORT_TERM_MQTT:
-            alarm_push(ALM_PRIO_INFO,warn_task_MQTT_overlay, portM->num);
+            alarm_push(ALM_PRIO_INFO, "TASK: Overlay started MQTT", portM->num);
         break;
         case PORT_TERM_VT100:
-            alarm_push(ALM_PRIO_INFO,warn_task_VT100_overlay, ALM_NO_VALUE);
+            alarm_push(ALM_PRIO_INFO, "TASK: Overlay started VT100", ALM_NO_VALUE);
         break; 
     }
 

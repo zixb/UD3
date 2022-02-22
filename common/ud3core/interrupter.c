@@ -125,9 +125,8 @@ void interrupter_reconf_dma(enum interrupter_modulation mod){
 
 // Adds an alarm with the specified message to the alarm queue and stops the UD3
 // TODO: Make this a global function so it can be used everywhere resources and memory are allocated.
-void critical_error(const char *message)
-{
-    alarm_push(ALM_PRIO_CRITICAL, message, 0);
+void critical_error(const char *message, int32_t val) {
+    alarm_push(ALM_PRIO_CRITICAL, message, val);
     interrupter_kill();
 }
 
@@ -149,12 +148,13 @@ void initialize_interrupter(void) {
     
 	// Variable declarations for int1_dma.  This transfers int1_prd and int1_cmp to the interrupter1 component.
 	uint8_t int1_dma_TD[4];
-	int1_dma_Chan = int1_dma_DmaInitialize(int1_dma_BYTES_PER_BURST, int1_dma_REQUEST_PER_BURST, HI16(int1_dma_SRC_BASE), HI16(int1_dma_DST_BASE));
+	int1_dma_Chan = int1_dma_DmaInitialize(int1_dma_BYTES_PER_BURST, int1_dma_REQUEST_PER_BURST,
+										   HI16(int1_dma_SRC_BASE), HI16(int1_dma_DST_BASE));
     
     for(int i=0; i<4; ++i){
     	int1_dma_TD[i] = CyDmaTdAllocate();
         if(int1_dma_TD[i] == DMA_INVALID_TD)
-            critical_error("CyDmaTdAllocate failure");
+            critical_error("CyDmaTdAllocate failure INT", i);
     }
     
 	CyDmaTdSetConfiguration(int1_dma_TD[0], 2, int1_dma_TD[1], int1_dma__TD_TERMOUT_EN | TD_AUTO_EXEC_NEXT);
@@ -173,8 +173,8 @@ void initialize_interrupter(void) {
         for(uint8_t i=0;i<N_TD;i++){
             ch_dma_TD[ch][i] = CyDmaTdAllocate();
             if(ch_dma_TD[ch][i] ==  DMA_INVALID_TD)
-                critical_error("CyDmaTdAllocate failure");
-        }
+                critical_error("CyDmaTdAllocate failure DDS", i);
+         }
     }
 
     DDS32_1_Start();
@@ -341,7 +341,7 @@ void interrupter_update_ext() {
 uint8_t callback_ext_interrupter(parameter_entry * params, uint8_t index, TERMINAL_HANDLE * handle){
     if(configuration.ext_interrupter){
         // Here if external interrupter has been enabled
-        alarm_push(ALM_PRIO_WARN,warn_interrupter_ext, configuration.ext_interrupter);
+        alarm_push(ALM_PRIO_WARN, "INT: External interrupter active", configuration.ext_interrupter);
         interrupter_update_ext();
     }else{
         // Here if external interrupter has been disabled

@@ -99,7 +99,16 @@ static const char * AC_alarms[] = {
 static const char * AC_hwGauge[] = {
     "assign",
     "clear",
-    "calibrate"
+    "calibrate",
+    "startColor",
+    "endColor",
+    "transition"
+};
+
+static const char * AC_display[] = {
+    "assign",
+    "clear",
+    "select"
 };
 
 static const char * AC_eeprom[] = {
@@ -255,13 +264,13 @@ void tsk_cli_TaskProc(void *pvParameters) {
 
     switch(portM->type) {
         case PORT_TYPE_SERIAL:
-            alarm_push(ALM_PRIO_INFO,warn_task_serial_cli, ALM_NO_VALUE);
+            alarm_push(ALM_PRIO_INFO, "TASK: Serial-CLI started", ALM_NO_VALUE);
         break;
         case PORT_TYPE_USB:
-            alarm_push(ALM_PRIO_INFO,warn_task_usb_cli, ALM_NO_VALUE);
+            alarm_push(ALM_PRIO_INFO, "TASK: USB-CLI started", ALM_NO_VALUE);
         break;
         case PORT_TYPE_MIN:
-            alarm_push(ALM_PRIO_INFO,warn_task_min_cli, portM->num);
+            alarm_push(ALM_PRIO_INFO, "TASK: MIN-CLI started", portM->num);
         break;      
     }
 
@@ -336,6 +345,7 @@ void tsk_cli_Start(void) {
         TERM_addCommand(CMD_debug, "debug","Debug mode",0,&TERM_cmdListHead);
         TERM_addCommand(CMD_ntc, "ntc","Calibrate NTC iDAC",0,&TERM_cmdListHead);
         TERM_addCommandConstAC(CMD_hwGauge, "hwGauge","adjust hardware gauge parameters",AC_hwGauge,&TERM_cmdListHead);
+        TERM_addCommandConstAC(CMD_display, "display","adjust WS2812 parameters",AC_display,&TERM_cmdListHead);
      
         if(configuration.minprot==pdTRUE){
             for(uint8_t i=0;i<NUM_MIN_CON;i++){
