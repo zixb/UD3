@@ -113,7 +113,13 @@ typedef struct
     uint32_t integral;
 } _i2t;
 
-_i2t i2t;
+_i2t i2t = {
+    .limit = 0,
+    .warning = 0,
+    .warning_level = 60,
+    .leak = 0,
+    .integral = 0
+};
 
 // Called when max_const_i or max_fault_i parameters are changed by user
 void i2t_set_limit(uint32_t const_current, uint32_t ovr_current, uint32_t limit_ms){
@@ -132,14 +138,6 @@ void i2t_set_warning(uint8_t percent){
 // Called by the "fuse_reset" CLI command
 void i2t_reset(){
     i2t.integral=0;
-}
-
-// TODO: Bug: I don't think this is actually called anywhere?
-void i2t_init(){
-    i2t.integral=0;
-    i2t.warning=0;
-    i2t.leak=0;
-    i2t.warning_level=60;
 }
 
 // Called by calculate_rms() which is called on a timer
