@@ -249,8 +249,8 @@ parameter_entry confparam[] = {
     ADD_PARAM(PARAM_CONFIG  ,pdTRUE ,"max_fb_errors"   , configuration.max_fb_errors   , 0      ,60000  ,0      ,NULL                        ,"0=off, number of feedback errors per second to sysfault")
     ADD_PARAM(PARAM_CONFIG  ,pdTRUE ,"ntc_b"           , configuration.ntc_b           , 0      ,10000  ,0      ,callback_ntc                ,"NTC beta [k]")
     // DS: TODO: The comment says kOhm, but the value is stored in ohms and the divisor is 0.  Shouldn't it be 1000?
-    ADD_PARAM(PARAM_CONFIG  ,pdTRUE ,"ntc_r25"         , configuration.ntc_r25         , 0      ,33000  ,0      ,callback_ntc                ,"NTC R25 [kOhm]")
     // DS: TODO: Shouldn't the following use callback_ntc to update the lookup table when the IDAC is changed?
+    ADD_PARAM(PARAM_CONFIG  ,pdTRUE ,"ntc_r25"         , configuration.ntc_r25         , 0      ,33000  ,1000   ,callback_ntc                ,"NTC R25 [kOhm]")
     ADD_PARAM(PARAM_CONFIG  ,pdTRUE ,"ntc_idac"        , configuration.idac            , 0      ,2000   ,0      ,NULL                        ,"iDAC measured [uA]")
     ADD_PARAM(PARAM_CONFIG  ,pdFALSE,"d_calib"         , vdriver_lut                   , 0      ,0      ,0      ,NULL                        ,"For voltage measurement")
     ADD_PARAM(PARAM_CONFIG  ,pdFALSE,"hwGauge_cfg"     , hwGauges.rawData              , 0      ,0      ,0      ,callback_hwGauge            ,"gauge configs, configure with the \"hwGauge\" command")
