@@ -58,10 +58,10 @@ const unsigned char pixmap[4][2] = {
 
 uint8_t *pix;
 
-// Converts x,y to linear address in the pixel buffer.  This stores in column major order
+// Converts x,y to a linear address in the pixel buffer.  This stores in column major order.
 #define pix_select(x,y)  pix[x*PIX_HEIGHT+y]
 
-void raise_mermory_error(TERMINAL_HANDLE * handle){
+void raise_memory_error(TERMINAL_HANDLE * handle){
     ttprintf("WARNING: NULL pointer; malloc failed\r\n");
 }
 
@@ -73,7 +73,11 @@ void raise_mermory_error(TERMINAL_HANDLE * handle){
 static void set_bytes(char *pbuffer, const unsigned char c) {
 	pbuffer[0] = (char)0xE2;
     
-    // TODO: The following can be replaced with pbuffer[1] = 0xa0 | (c >> 6);
+    // TODO: I think the rest of this could be replaced by the simpler (and faster):
+    // pbuffer[1] = (char)(0xa0 | (c >> 6));
+    // pbuffer[2] = (char)(0x80 | (c & 0x3f));    
+    // Leaving for now because "if it ain't broke, don't fix it"
+    
 	if (c & pixmap[3][0] && c & pixmap[3][1]) {
 		pbuffer[1] = (char)0xA3;
 	} else if (c & pixmap[3][1]) {
@@ -84,22 +88,23 @@ static void set_bytes(char *pbuffer, const unsigned char c) {
 		pbuffer[1] = (char)0xA0;
 	}
 
-    // TODO: The following can be replaced with pBuffer[2] = 0x80 | (c & 0x3f);
 	pbuffer[2] = (char)((0xBF & c) | 0x80);
 }
 
 // Allocates a screen buffer to store the pixels
 void braille_malloc(TERMINAL_HANDLE * handle){
-    // TODO: Should test for non-null pix here (indicates someone forgot to call braille_free()).
+    if(pix != NULL)
+       raise_memory_error(handle);  // Someone forgot to call braille_free() first?
+    
     pix = pvPortMalloc(sizeof(uint8_t)*PIX_HEIGHT*(PIX_WIDTH / 8));
     if(pix==NULL)
-        raise_mermory_error(handle);
+        raise_memory_error(handle);
 }
 
 // Frees the pixel buffer
 void braille_free(TERMINAL_HANDLE * handle){
     if(pix==NULL){
-        raise_mermory_error(handle);
+        raise_memory_error(handle);
     }else{
         vPortFree(pix);
     }
@@ -142,7 +147,7 @@ void braille_line(int x0, int y0, int x1, int y1) {
 
 // Clears the offscreen buffer
 void braille_clear(void) {
-    // Would be faster to memset(pix, 0, (PIX_WIDTH / 8) * PIX_HEIGHT);
+    // TODO: Would be faster to memset(pix, 0, (PIX_WIDTH / 8) * PIX_HEIGHT);
     if(pix!=NULL){
         for (uint8_t x = 0; x < PIX_WIDTH / 8; x++) {
 		    for (uint8_t y = 0; y < PIX_HEIGHT; y++) {
@@ -156,7 +161,7 @@ void braille_clear(void) {
 void braille_draw(TERMINAL_HANDLE * handle) {
 	unsigned char byte;
     if(pix==NULL){
-        raise_mermory_error(handle);
+        raise_memory_error(handle);
         return;
     }
     
