@@ -656,7 +656,7 @@ uint8_t CMD_telemetry(TERMINAL_HANDLE * handle, uint8_t argCount, char ** args){
         }
         
         
-        int cnt=-1;
+        int cnt = -1;
         for(uint8_t w=0;w<N_TELE;w++){
             if(strcmp(args[2],tt.a[w].name)==0){
                 // Here if the metric name given by the user matches one in the tt.a[] array.
@@ -668,7 +668,7 @@ uint8_t CMD_telemetry(TERMINAL_HANDLE * handle, uint8_t argCount, char ** args){
                 break;
             }
         }
-        if(cnt==TT_NO_TELEMETRY){   // TODO: Bug: This should be -1, not TT_NO_TELEMETRY
+        if(cnt == TT_NO_TELEMETRY){   // TODO: Bug: This should be -1, not TT_NO_TELEMETRY
             ttprintf("Telemetry name not found\r\n"); 
         }else{
             tt.a[cnt].gauge = n;

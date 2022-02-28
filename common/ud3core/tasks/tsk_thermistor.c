@@ -105,7 +105,7 @@ void calc_table_128(int16_t t_table[], uint8_t bits, uint16_t table_size, uint32
         // unit, which is finally multiplied by i (the number of ADC units being calculated
         // for this LUT node).
 		if(i>0){
-			r_cnt = u_ref_mv / max_cnt * i / meas_current;  // DS: 
+			r_cnt = u_ref_mv / max_cnt * i / meas_current;
 		}else{
 			r_cnt = 0;
 		}
