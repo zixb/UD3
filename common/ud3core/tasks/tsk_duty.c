@@ -27,7 +27,7 @@ void tsk_duty_task(void *pvParameters) {
         uint32_t onTime = 0xffffff - OnTimeCounter_ReadCounter();
         uint32_t period = lastTickCount - SG_Timer_ReadCounter();
         
-        OnTimeCounter_WriteCounter(0xfffffff);  // DS: Bug: Note this is writing 7 'f's.  But the timer is only 24 bits (6 f'fs).
+        OnTimeCounter_WriteCounter(0xffffff);
         lastTickCount = SG_Timer_ReadCounter();
         // The interrupter clock is 1Mhz.  The SG_Timer is 320K.  1Mhz/320K = 3.125.
         
