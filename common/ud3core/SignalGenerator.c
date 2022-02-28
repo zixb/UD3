@@ -26,29 +26,27 @@
 #include "SignalGeneratorMIDI.h"
 #include "clock.h"
 #include "qcw.h"
-#include "interrupter.h"
 #include "tasks/tsk_midi.h"
-#include "telemetry.h"
-#include <device.h>
 #include <stdlib.h>
 #include "MidiController.h"
 #include "mapper.h"
 #include "telemetry.h"
-#include "tasks/tsk_cli.h"
 
 // Tone generator channel status
 CHANNEL channel[N_CHANNEL];
 
+struct _filter filter;      // The parsed MIDI filter string.  This specifies the channels and notes handled by this UD3.
+
 // Called by the 8kHz isr_midi clock
 CY_ISR(isr_synth) {
     uint32_t r = SG_Timer_ReadCounter();
-    
     
     clock_tick();
     if(qcw_reg){
         qcw_handle();
         return;
     }
+    
     switch(param.synth){
         case SYNTH_MIDI:
             synthcode_MIDI(r);
@@ -64,16 +62,15 @@ CY_ISR(isr_synth) {
     }
 }
 
-struct _filter filter;
-
 /*****************************************************************************
-* Switches the synthesizer
+* Switches the synthesizer when the "synth" parameter is changed.
 ******************************************************************************/
 uint8_t callback_SynthFunction(parameter_entry * params, uint8_t index, TERMINAL_HANDLE * handle){
     SigGen_switch_synth(param.synth);
     return 1;
 }
 
+// Called when the synth_filter is changed.  This parses the filter string into the filter struct.
 uint8_t callback_synthFilter(parameter_entry * params, uint8_t index, TERMINAL_HANDLE * handle){
     uint8_t cnt=0;
     uint16_t number=0;
@@ -81,26 +78,29 @@ uint8_t callback_synthFilter(parameter_entry * params, uint8_t index, TERMINAL_H
     uint8_t str_size = strlen(configuration.synth_filter);
     uint8_t flag=0;
     
+    // Initialize to reasonable defaults
     filter.min=0;
     filter.max=20000;
     if(configuration.synth_filter[0]=='\0'){  //No filter
-        for(uint8_t i=0;i<16;i++){
+        for(uint8_t i=0; i<N_MIDICHANNEL; i++){
             filter.channel[i]=pdTRUE;
         }
         return 1;
     }else{
-        for(uint8_t i=0;i<16;i++){
+        for(uint8_t i=0; i<N_MIDICHANNEL; i++){
             filter.channel[i]=pdFALSE;
         }
     }
     
+    // Parse the filter string
     for(uint8_t i=0;i<str_size;i++){
         if(configuration.synth_filter[i]=='\0') break;
         
+        // Check for 'c' followed by a channel number.  This enables the specified channel
         if(configuration.synth_filter[i]=='c'){
             cnt=0;
             substring[0]='\0';
-            for(uint8_t w=i+1;w<str_size;w++){
+            for(uint8_t w=i+1; w<str_size; w++){
                 if(isdigit(configuration.synth_filter[w])){
                     substring[cnt]=configuration.synth_filter[w];
                     cnt++;
@@ -111,15 +111,16 @@ uint8_t callback_synthFilter(parameter_entry * params, uint8_t index, TERMINAL_H
             }
             if(substring[0]){
                 number = atoi(substring);
-                if(number<16){
+                if(number < N_MIDICHANNEL){
                     filter.channel[number]=pdTRUE;
                     flag=1;
                 }
             }  
+        // Check for 'f' followed by 
         }else if(configuration.synth_filter[i]=='f'){
             if(configuration.synth_filter[i+1]=='>' || configuration.synth_filter[i+1]=='<'){
                 cnt=0;
-                for(uint8_t w=i+2;w<str_size;w++){
+                for(uint8_t w=i+2; w<str_size; w++){
                     if(isdigit(configuration.synth_filter[w])){
                         substring[cnt]=configuration.synth_filter[w];
                         cnt++;
@@ -130,7 +131,7 @@ uint8_t callback_synthFilter(parameter_entry * params, uint8_t index, TERMINAL_H
                 }
                 if(cnt){
                     number = atoi(substring);
-                    if(number<20000){
+                    if(number < 20000){
                         if(configuration.synth_filter[i+1]=='>') filter.max = number;
                         if(configuration.synth_filter[i+1]=='<') filter.min = number;
                     }
@@ -139,11 +140,12 @@ uint8_t callback_synthFilter(parameter_entry * params, uint8_t index, TERMINAL_H
         }     
     }
     if(filter.min > filter.max){
-        ttprintf("Error: Min frequency ist greater than max\r\n");
+        ttprintf("Error: Min frequency is greater than max\r\n");
     }
+    // If no channels were specified in the filter string, enable all of them
     if(!flag){
-        for(uint8_t i=0;i<16;i++){
-            filter.channel[i]=pdTRUE;
+        for(uint8_t i=0; i<N_MIDICHANNEL; i++){
+            filter.channel[i] = pdTRUE;
         }   
     }
 
@@ -156,6 +158,7 @@ uint8_t callback_synthFilter(parameter_entry * params, uint8_t index, TERMINAL_H
     return 1;
 }
 
+// Enable/disable the specified channel
 void SigGen_channel_enable(uint8_t ch, uint32_t ena){
     switch(ch){
         case 0:
@@ -173,6 +176,7 @@ void SigGen_channel_enable(uint8_t ch, uint32_t ena){
     }
  }
 
+// Returns true if the specified channel is enabled
 size_t SigGen_get_channel(uint8_t ch){
     switch(ch){
         case 0:
@@ -187,7 +191,7 @@ size_t SigGen_get_channel(uint8_t ch){
     return pdFALSE;
  }
 
-
+// Sets the frequency for the specified channel
 uint16_t SigGen_channel_freq_fp8(uint8_t ch, uint32_t freq){
     switch(ch){
         case 0:
@@ -206,6 +210,7 @@ uint16_t SigGen_channel_freq_fp8(uint8_t ch, uint32_t freq){
     return 0;
 }
 
+// Enables noise for the specified channel.  If ena is 0 then does nothing.  TODO: Why just not call this in that case?
 void SigGen_noise(uint8_t ch, uint32_t ena, uint32_t rnd){
     if(ena==0) return;
     switch(ch){
@@ -224,17 +229,24 @@ void SigGen_noise(uint8_t ch, uint32_t ena, uint32_t rnd){
     }
 }
 
+// set the Timer Period Register to the appropriate value for the required frequency.  
+// This is the primary interface between VMS and the actual coil hardware to specify
+// the frequency to play for each of the 4 notes.
+//
+// To allow for smooth pitch bend commands the frequency is in 1/10th Hz
 void SigGen_setNoteTPR(uint8_t voice, uint32_t freqTenths){
     SigGen_limit();
             
     Midi_voice[voice].freqCurrent = freqTenths;
     channel[voice].freq = (freqTenths / 10);
-
     
     uint32_t freq = ((channel[voice].freq)<<8) + ((0xFF *  (freqTenths % 10)) / 10);
     if(freqTenths != 0){
         channel[voice].halfcount = (SG_CLOCK_HALFCOUNT<<14) / (freq<<6);
         switch(voice){
+            // TODO: Seems like all this could be done with:
+            // SigGen_channel_freq_fp8(voice, freq);
+            // SigGen_channel_enable(voice, 1);
             case 0:
                 DDS32_1_SetFrequency_FP8(0,freq);
                 DDS32_1_Enable_ch(0);
@@ -254,6 +266,7 @@ void SigGen_setNoteTPR(uint8_t voice, uint32_t freqTenths){
         }
         return;  
     }else{
+        // Here if frequency is 0.  Disable the specified voice.  TODO: Seems like all this could just be done with SigGen_channel_enable(voice, 0);
         switch(voice){
         case 0:
             DDS32_1_Disable_ch(0);
@@ -268,16 +281,13 @@ void SigGen_setNoteTPR(uint8_t voice, uint32_t freqTenths){
             DDS32_2_Disable_ch(1);
             break;
         }
- 
     }
 }
-
 
 void SigGen_limit(){
     
     uint32_t totalDuty = 0;
     uint32_t out_pw=param.pw;
-    
 
     for(uint32_t c=0; c < MIDI_VOICECOUNT; c++){
         uint32_t ourDuty = (((uint32)127*(uint32)param.pw)/(1270000ul/Midi_voice[c].freqCurrent));
@@ -301,11 +311,11 @@ void SigGen_limit(){
     }
 }
 
+// Called once by MIDI_Init() (part of VMS) during startup.
 void SigGen_init(){
     
     SigGen_SID_init();
     
-
     for (uint8_t ch = 0; ch < N_CHANNEL; ch++) {
         channel[ch].volume=0;
         channel[ch].freq=0;
@@ -333,6 +343,7 @@ void SigGen_switch_synth(uint8_t synth){
     SigGen_kill(); 
 }
 
+// Displays the frequency, prog, name, and volume for each of the 4 MIDI channels
 void Synthmon_MIDI(TERMINAL_HANDLE * handle){
     TERM_sendVT100Code(handle, _VT100_CURSOR_DISABLE,0);
     TERM_sendVT100Code(handle, _VT100_CLS,0);
@@ -382,6 +393,7 @@ void Synthmon_MIDI(TERMINAL_HANDLE * handle){
     TERM_sendVT100Code(handle, _VT100_CURSOR_ENABLE,0);    
 }
 
+// Displays the frequency and volume for each of the 3 SID channels
 void Synthmon_SID(TERMINAL_HANDLE * handle){
     TERM_sendVT100Code(handle, _VT100_CURSOR_DISABLE,0);
     TERM_sendVT100Code(handle, _VT100_CLS,0);
@@ -411,6 +423,7 @@ void Synthmon_SID(TERMINAL_HANDLE * handle){
     TERM_sendVT100Code(handle, _VT100_CURSOR_ENABLE,0);
 }
 
+// Displays the real time stats for the current synth
 uint8_t CMD_SynthMon(TERMINAL_HANDLE * handle, uint8_t argCount, char ** args){
     switch(param.synth)
     {

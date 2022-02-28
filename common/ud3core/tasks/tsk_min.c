@@ -262,12 +262,14 @@ void min_event(uint8_t command, uint8_t *min_payload, uint8_t len_payload){
     }
 }
 
+// Packet types for VMS data
 #define VMS_WRT_BLOCK      1
 #define VMS_WRT_MAP_HEADER 2
 #define VMS_WRT_MAP_DATA   3
 #define VMS_WRT_FLUSH      4
 #define VMS_WIRE_SIZE ((12+VMS_MAX_BRANCHES)*4)   //12+4 * 4 bytes
 
+// Extracts a VMS_BLOCK from min_payload and stores the results in blk.
 void write_blk_struct(VMS_BLOCK* blk, uint8_t* min_payload){
     int32_t ind = 0;
     uint32_t temp;
@@ -323,6 +325,7 @@ void write_blk_struct(VMS_BLOCK* blk, uint8_t* min_payload){
     blk->flags = buffer_get_uint32(min_payload, &ind);
 }
 
+// Extracts a MAPTABLE_HEADER struct from the packet
 void write_map_header_struct(MAPTABLE_HEADER* map_header, uint8_t* min_payload){
     int32_t ind = 0;
     map_header->listEntries = min_payload[ind++];
@@ -330,6 +333,7 @@ void write_map_header_struct(MAPTABLE_HEADER* map_header, uint8_t* min_payload){
     memcpy(map_header->name, &min_payload[ind], sizeof(map_header->name));
 }
 
+// Extracts a MAPTABLE_ENTRY struct from the packet
 void write_map_entry_struct(MAPTABLE_ENTRY* map_entry, uint8_t* min_payload){
     int32_t ind = 0;
     map_entry->startNote = min_payload[ind++];
@@ -340,12 +344,14 @@ void write_map_entry_struct(MAPTABLE_ENTRY* map_entry, uint8_t* min_payload){
     uint32_t temp = buffer_get_uint32(min_payload, &ind);
     if(temp != 0){
         temp--;
-        map_entry->data.VMS_Startblock = (VMS_BLOCK*)&VMS_BLKS[temp];
+        map_entry->data.VMS_Startblock = (VMS_BLOCK*)&VMS_BLKS[temp];   // Convert index to pointer
     }else{
         map_entry->data.VMS_Startblock = NULL;
     }
 }
 
+// Called when a VMS packet has been received.  The packets are used to construct 
+// the MIDI database and stored in flash.
 void min_vms(uint8_t *min_payload, uint8_t len_payload){
     
     uint8_t packet_type = *min_payload;
@@ -358,8 +364,9 @@ void min_vms(uint8_t *min_payload, uint8_t len_payload){
     static uint8_t n_map_entry=0;
     static uint16_t last_write_index=0;
     
+    // TODO: All calls to pvPortMalloc should be checked for failure below.
     switch (packet_type){
-        case VMS_WRT_BLOCK:
+        case VMS_WRT_BLOCK:     // Save a VMS_BLOCK in flash
             if((len_payload % VMS_WIRE_SIZE) != 0){
                 alarm_push(ALM_PRIO_WARN, "COM: Malformed block write", len_payload);
                 return;
@@ -370,21 +377,25 @@ void min_vms(uint8_t *min_payload, uint8_t len_payload){
             vPortFree(blk);
             blk=NULL;
             break;
-        case VMS_WRT_MAP_HEADER:
+        case VMS_WRT_MAP_HEADER:    // The MAP_HEADER is stored locally here
             map_header = pvPortMalloc(sizeof(MAPTABLE_HEADER)); 
             write_map_header_struct(map_header, min_payload);
             map_entry = pvPortMalloc(sizeof(MAPTABLE_ENTRY) * map_header->listEntries);
             n_map_entry = 0;
             break;
-        case VMS_WRT_MAP_DATA:
+        case VMS_WRT_MAP_DATA:      
             if(map_header != NULL || map_entry != NULL){
                 write_map_entry_struct(&map_entry[n_map_entry], min_payload);
                 n_map_entry++;
+                
                 if(n_map_entry == map_header->listEntries){
+                    // Here if we have accumulated the required number of MAPTABLE_ENTRY's.  
+                    // Write the MAPTABLE_HEADER followed by the MAPTABLE_ENTRY's to flash.
                     nvm_write_buffer(last_write_index, (uint8_t*)map_header, sizeof(MAPTABLE_HEADER));
                     last_write_index += sizeof(MAPTABLE_HEADER);
                     nvm_write_buffer(last_write_index, (uint8_t*)map_entry, sizeof(MAPTABLE_ENTRY) * map_header->listEntries);
                     last_write_index += sizeof(MAPTABLE_ENTRY) * map_header->listEntries;
+                    
                     vPortFree(map_entry);
                     vPortFree(map_header);
                     map_entry = NULL;
@@ -394,7 +405,10 @@ void min_vms(uint8_t *min_payload, uint8_t len_payload){
                 alarm_push(ALM_PRIO_WARN, "COM: Malformed map write", len_payload);
             }
             break;
-        case VMS_WRT_FLUSH:
+        case VMS_WRT_FLUSH:         // End of VMS data.  Commit cached data and reset for next time.
+                                    // TODO: If this packet is not received for some reason, then 
+                                    // last_write_index will be left pointing at a random location and 
+                                    // the next set of packets are going to corrupt flash.
             last_write_index=0;
             nvm_flush();
             vPortFree(map_entry);
@@ -487,7 +501,7 @@ void min_application_handler(uint8_t min_id, uint8_t *min_payload, uint8_t len_p
        
             return;
         case MIN_ID_VMS:
-            min_vms(min_payload, len_payload);
+            min_vms(min_payload, len_payload);  // Handle a VMS packet to build the internal MIDI database
             return;
         default:
             break; 

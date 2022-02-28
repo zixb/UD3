@@ -31,6 +31,7 @@
 #include "MidiController.h"
 #include <stdlib.h>
 
+// This is called by the midi clock interrupt handler at 8kHz.  I think all this is doing is updating the random value for the noise chans
 void synthcode_MIDI(uint32_t r){
     uint32_t rnd = rand();
     uint32_t flag;
@@ -40,7 +41,8 @@ void synthcode_MIDI(uint32_t r){
             if (Midi_voice[ch].noiseCurrent && (r / channel[ch].halfcount) % 2 > 0) {
                 flag=1;
 			} 
-            if(flag > channel[ch].old_flag) SigGen_noise(ch, Midi_voice[ch].noiseCurrent,rnd);
+            if(flag > channel[ch].old_flag) 
+               SigGen_noise(ch, Midi_voice[ch].noiseCurrent, rnd);
             channel[ch].old_flag = flag;
         }
 	}

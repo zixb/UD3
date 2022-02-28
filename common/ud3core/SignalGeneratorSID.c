@@ -76,6 +76,7 @@ static inline void compute_adsr_sid(uint8_t ch){
 uint32_t volatile next_frame=4294967295;
 uint32_t last_frame=4294967295;
 
+// This is called by the midi clock interrupt handler at 8kHz.
 void synthcode_SID(uint32_t r){
   
     tt.n.midi_voices.value=0;
@@ -135,6 +136,7 @@ void synthcode_SID(uint32_t r){
 	}
 }
 
+// This is called by the midi clock interrupt handler at 8kHz.
 void synthcode_QSID(uint32_t r){
     qcw_handle_synth();
     

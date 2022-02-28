@@ -72,7 +72,7 @@ xQueueHandle qMIDI_rx;
 
 
 
-
+// Places midiMsg into the qMIDI_rx queue for processing by the midi task
 void USBMIDI_1_callbackLocalMidiEvent(uint8 cable, uint8 *midiMsg) {
     uint8_t ret=pdTRUE;
     ret = xQueueSendFromISR(qMIDI_rx, midiMsg, NULL);
@@ -130,8 +130,8 @@ void tsk_midi_TaskProc(void *pvParameters) {
 
         if(param.synth==SYNTH_MIDI){
             
-    		if (xQueueReceive(qMIDI_rx, msg+1, 1)) { //+1 copy only midi msg not midi-cable (byte 0)
-                Midi_SOFHandler();
+    		if (xQueueReceive(qMIDI_rx, msg+1, 1)) {        //+1 copy only midi msg not midi-cable (byte 0)
+                Midi_SOFHandler();                          // Increment the age of the 4 voice notes
     			Midi_run(msg);
     			while (xQueueReceive(qMIDI_rx, msg+1, 0)) { //+1 copy only midi msg not midi-cable (byte 0)
     				Midi_run(msg);

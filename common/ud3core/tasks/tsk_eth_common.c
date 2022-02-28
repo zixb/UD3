@@ -10,6 +10,11 @@
  * ========================================
 */
 
+//-----------------------------------------------------------------------------
+// This file contains functions related to unpacking MIDI and SID messages and 
+// placing them in the appropriate queue for asynchronous processing.
+//-----------------------------------------------------------------------------
+
 /* [] END OF FILE */
 #include "tsk_eth_common.h"
 #include "cyapicallbacks.h"
@@ -23,9 +28,14 @@
 #include "clock.h"
 #include "SignalGeneratorSID.h"
 
+// Process a MIDI message.  A MIDI message is from 1 to 3 bytes long.  
+// This also processes the watchdog reset command which is sent as a MIDI system message.
 void process_midi(uint8_t* ptr, uint16_t len) {
 	uint8_t c;
-    static uint8_t midi_count = 0;
+    // TODO: Does these really need to be static?  Only if a single MIDI command spans 
+    // multiple calls to this.  It would be better to always reset this to 0 here in 
+    // case a packet gets corrupted.  Otherwise this could be left at 1 or 2.
+    static uint8_t midi_count = 0;  
     static uint8_t midiMsg[3];
     
 	while (len) {
@@ -34,17 +44,18 @@ void process_midi(uint8_t* ptr, uint16_t len) {
         ptr++;
 		if (c & 0x80) {
 			midi_count = 1;
-			midiMsg[0] = c;
+			midiMsg[0] = c;         // Save first byte of MIDI message
 
-			goto end;
+			goto end;               // TODO: continue
 		} else if (!midi_count) {
-            goto end;
+            goto end;               // TODO: continue
 		}
+        
 		switch (midi_count) {
 		case 1:
-			midiMsg[1] = c;
+			midiMsg[1] = c;         // Save second byte of MIDI message
 			midi_count = 2;
-            if((midiMsg[0] & 0xF0) == 0xC0){
+            if((midiMsg[0] & 0xF0) == 0xC0){    // Here for a 2 byte message: program change, pressure change, etc
                 midi_count = 0;
                 midiMsg[2]=0;
                 USBMIDI_1_callbackLocalMidiEvent(0, midiMsg);
@@ -53,16 +64,16 @@ void process_midi(uint8_t* ptr, uint16_t len) {
 		case 2:
 			midiMsg[2] = c;
 			midi_count = 0;
-			if (midiMsg[0] == 0xF0) {
-				if (midiMsg[1] == 0x0F) {
-					WD_reset();
-					goto end;
+			if (midiMsg[0] == 0xF0) {       // System exclusive message.  TODO: Use MIDI_CMD_SYSEX instead of 0xf0
+				if (midiMsg[1] == 0x0F) {   // Manufacturer ID
+					WD_reset();             // Reset watchdog timer
+					goto end;               // TODO: continue
 				}
 			}
-			USBMIDI_1_callbackLocalMidiEvent(0, midiMsg);
+			USBMIDI_1_callbackLocalMidiEvent(0, midiMsg);   // Add the message to the MIDI queue for asynchronous processing by the MIDI task.
 			break;
 		}
-	end:;
+	end:;   // TODO: delete this
 	}
 }
 

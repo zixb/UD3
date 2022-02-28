@@ -24,7 +24,6 @@
 #if !defined(SignalGenerator_H)
 #define SignalGenerator_H
     
-    
     #include <stdint.h>
     #include "config.h"
     #include "FreeRTOS.h"
@@ -35,37 +34,43 @@
     #define SID_CHANNELS 3
     
     enum ADSR{
-    ADSR_IDLE = 0,
-    ADSR_PENDING,
-    ADSR_ATTACK,
-    ADSR_DECAY,
-    ADSR_SUSTAIN,
-    ADSR_RELEASE,
+        ADSR_IDLE = 0,
+        ADSR_PENDING,
+        ADSR_ATTACK,
+        ADSR_DECAY,
+        ADSR_SUSTAIN,
+        ADSR_RELEASE,
     };
-    
+
+    enum SYNTH{
+        SYNTH_OFF=0,
+        SYNTH_MIDI=1,
+        SYNTH_SID=2,
+        SYNTH_MIDI_QCW=3,
+        SYNTH_SID_QCW=4
+    };
+
+    // These values are parsed from the synth_filter string parameter
+    // TODO: Globals like this should have a unique name (like maybe synth_filter?)
     struct _filter{
-        uint16_t min;
-        uint16_t max;
-        uint8_t channel[N_MIDICHANNEL];
+        uint16_t min;                   // The min frequency to be processed by this UD3 instance (for multiple UD3's at once)
+        uint16_t max;                   // The max frequency to be processed by this UD3 instance (for multiple UD3's at once)
+        uint8_t channel[N_MIDICHANNEL]; // True if this channel is enabled.  Set from the midi filter string
     };
+    extern struct _filter filter;
     
     typedef struct __channel__ {
-	int32_t volume;	// Volume (0 - 127) 7bit.16bit
-    uint16_t halfcount;
-    uint32_t freq;
-    uint8_t adsr_state;
-    uint8_t old_gate;
-    uint8_t noise;
-    uint8_t  old_flag;
+	    int32_t volume;	        // Volume (0 - 127) 7bit.16bit
+        uint16_t halfcount;
+        uint32_t freq;          // Frequency in Hz
+        uint8_t adsr_state;
+        uint8_t old_gate;
+        uint8_t noise;
+        uint8_t  old_flag;
     } CHANNEL;
-    
     extern CHANNEL channel[N_CHANNEL];
-
-    extern struct _filter filter;
-
     
     extern xQueueHandle qSID;
-    
     
     void SigGen_channel_enable(uint8_t ch, uint32_t ena);
     uint16_t SigGen_channel_freq_fp8(uint8_t ch, uint32_t freq);
@@ -82,14 +87,4 @@
     uint8_t callback_synthFilter(parameter_entry * params, uint8_t index, TERMINAL_HANDLE * handle);
     uint8_t callback_SynthFunction(parameter_entry * params, uint8_t index, TERMINAL_HANDLE * handle);
         
-    
-    enum SYNTH{
-        SYNTH_OFF=0,
-        SYNTH_MIDI=1,
-        SYNTH_SID=2,
-        SYNTH_MIDI_QCW=3,
-        SYNTH_SID_QCW=4
-    };
-    
-    
 #endif

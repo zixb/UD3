@@ -16,7 +16,15 @@
     You should have received a copy of the GNU General Public License
     along with the MidiStick Firmware.  If not, see <https://www.gnu.org/licenses/>.
 */
-    
+  
+// For MIDI newbies:
+// ADSR stands for attack, decay, sustain, release.  These are the 4 stages of modulation.
+// o Attack begins the moment a key is pressed and determines how quickly the sound 
+//   reaches full volume before the decay phase
+// o Decay determines the length of the drop from the peak level to the sustain level.
+// o Sustain determines the volume of a sound for the entire hold time between decay and release.
+// o Release determines the speed at which sound ends from the moment the key is released.
+
 #if PIC32
 #include <xc.h>
 #endif
@@ -356,7 +364,8 @@ void VMS_nextBlock(VMS_listDataObject * data, unsigned blockSet){
             if(block->nextBlocks[c] == VMS_DIE){
                 return;
             }
-            if(ptr_is_in_ram(block->nextBlocks[c]) || ptr_is_in_flash(block->nextBlocks[c])) VMS_addBlockToList(block->nextBlocks[c], voice);
+            if(ptr_is_in_ram(block->nextBlocks[c]) || ptr_is_in_flash(block->nextBlocks[c])) 
+                VMS_addBlockToList(block->nextBlocks[c], voice);
         }
     }else{
         if(block->offBlock != 0){

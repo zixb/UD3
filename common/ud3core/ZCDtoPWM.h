@@ -40,7 +40,7 @@ typedef struct
 	uint16 pwm_top;
 	uint16 pwmb_psb_prd;
 	uint16 pwmb_psb_val;
-	uint16 pwmb_start_psb_val;
+	uint16 pwmb_start_psb_val;  // pwmb phase shift during interrupter pulse start (in BUS_CLK's)
 	uint16 min_tr_prd;
 	uint8 min_tr_cl_dac_val;
 	uint8 diff_tr_cl_dac_val;

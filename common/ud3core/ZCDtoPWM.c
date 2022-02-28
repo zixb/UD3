@@ -178,8 +178,11 @@ void configure_ZCD_to_PWM(void) {
     
     // The width of the generated pulse (4 bus clocks) = 62.5 ns.
 	params.pwmb_start_cmp = 4;
+    
+    // Phase shift of pwmb in BUS_CLK's during start pulses.  This is a minimal phase shift for max power.
 	params.pwmb_start_psb_val = 15;				   //config.psb_start_val;// params.pwmb_start_prd>>3;
-												   //Set up FB_GLITCH PWM
+	
+    //Set up FB_GLITCH PWM
 	fb_glitch_cmp = pwm_start_prd_temp / 4; //set the lock out period to be 1/4 of a cycle long
 	if (fb_glitch_cmp > 255) {
 		fb_glitch_cmp = 255;

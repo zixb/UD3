@@ -85,6 +85,7 @@ void Midi_init(){
 }
 
 //As long as the USB device is not suspended this function will be called every 1 ms
+// This increments the age of the 4 voice notes
 void Midi_SOFHandler(){
     if(!Midi_initialized) return;
     
@@ -95,6 +96,9 @@ void Midi_SOFHandler(){
     
 }
 
+// Process a midi message:
+// Byte 0 = midi-cable
+// Byte 1 = status byte: most sig bit = 1, low 4 bits=channel, high 4 bits indicate the message ID
 void Midi_run(uint8_t* ReceivedDataBuffer){
     if(!Midi_initialized) return;
     
@@ -108,9 +112,12 @@ void Midi_run(uint8_t* ReceivedDataBuffer){
             uint8_t channel = ReceivedDataBuffer[1] & 0xf;
             uint8_t cmd = ReceivedDataBuffer[1] & 0xf0;
             
+            // Bail if this UD3 instance is not supposed to handle this channel
             if(filter.channel[channel]==pdFALSE) return;
             
             if(cmd == MIDI_CMD_NOTE_OFF){
+                // byte 2 = note number
+                // byte 3 = velocity (how hard the key was pressed or amplitude).  Usually ignored for note off.
                 
                 //step through all voices and check if the note that was just switched off is playing on any, if it is and the channel matches, we switch it off
                 uint8_t currVoice = 0;
@@ -121,6 +128,8 @@ void Midi_run(uint8_t* ReceivedDataBuffer){
                 }
                 
             }else if(cmd == MIDI_CMD_NOTE_ON){
+                // byte 2 = note number
+                // byte 3 = velocity (how hard the key was pressed or amplitude)
                 if(ReceivedDataBuffer[3] > 0){  //velocity is > 0 -> turn note on && channelData[channel].currStereoVolume > 0
                     MAPPER_map(ReceivedDataBuffer[2], ReceivedDataBuffer[3], channel);
                     
@@ -134,6 +143,8 @@ void Midi_run(uint8_t* ReceivedDataBuffer){
                 }
 
             }else if(cmd == MIDI_CMD_CONTROLLER_CHANGE){
+                // Byte 2 = controller number (identifies which function of the synthesizer is to be controlled by the message)
+                // Byte 3 = control value
                 if(ReceivedDataBuffer[2] == MIDI_CC_PANIC || ReceivedDataBuffer[2] == MIDI_CC_ALL_SOUND_OFF || ReceivedDataBuffer[2] == MIDI_CC_ALL_NOTES_OFF || ReceivedDataBuffer[2] == MIDI_CC_RESET_ALL_CONTROLLERS){ //Midi panic, and sometimes used by programms when you press the "stop" button
 
                     VMS_clear();
@@ -164,10 +175,12 @@ void Midi_run(uint8_t* ReceivedDataBuffer){
                     
                     
                 }else if(ReceivedDataBuffer[2] == MIDI_CC_PTIME_COARSE){
+                    // Byte 3 = portamento time (0-127)
                     channelData[channel].portamentoTime &= 0xff;
                     channelData[channel].portamentoTime |= (ReceivedDataBuffer[3] << 7);
                     
                 }else if(ReceivedDataBuffer[2] == MIDI_CC_VOLUME){
+                    // Byte 3 = channel volume (0-127)
                     channelData[channel].currVolume = ReceivedDataBuffer[3];
                     MAPPER_volumeHandler(channel);
                     
@@ -211,6 +224,9 @@ void Midi_run(uint8_t* ReceivedDataBuffer){
 
 
             }else if(cmd == MIDI_CMD_PITCH_BEND){
+                // Modify the pitch of the note being played
+                // bytes 2 and 3 contain the pitch bend value
+                
                 //calculate the factor, by which we will bend the note
                 int16_t bendParameter = (((ReceivedDataBuffer[3] << 7) | ReceivedDataBuffer[2]) - 8192);
                 float bendOffset = (float) bendParameter / 8192.0;
@@ -219,6 +235,9 @@ void Midi_run(uint8_t* ReceivedDataBuffer){
                 MAPPER_bendHandler(channel);
                 
             }else if(cmd == MIDI_CMD_PROGRAM_CHANGE){
+                // Specifies the type of instrument to play on a given channel
+                // byte 2 = new program number
+                
                 //load the program from NVM
                 MAPPER_programChangeHandler(channel, ReceivedDataBuffer[2]);
             }

@@ -35,13 +35,19 @@ const struct{
     MAPTABLE_ENTRY h0e0;
 } DEFMAP = {.h0 = {.programNumber = 0, .listEntries = 1, .name = "DEFMAP"} , .h0e0 = {.startNote = 0, .endNote = 127, .data.VMS_Startblock = (VMS_BLOCK*)&ATTAC, .data.flags = MAP_ENA_DAMPER | MAP_ENA_STEREO | MAP_ENA_VOLUME | MAP_ENA_PITCHBEND | MAP_FREQ_MODE, .data.noteFreq = 0, .data.targetOT = 255}};
 
+// Called when a MIDI Note On message is received.
 void MAPPER_map(uint8_t note, uint8_t velocity, uint8_t channel){
+    
+    // Cache pointers to the MAPTABLE_DATA structs that contain note
     MAPTABLE_DATA * maps[MIDI_VOICECOUNT];
     uint8_t requestedChannels = MAPPER_getMaps(note, channelData[channel].currentMap, maps);
+    
+    // If none available, use DEFMAP
     if(requestedChannels == 0){
         maps[0] = (MAPTABLE_DATA*)&DEFMAP.h0e0.data;
         requestedChannels = 1;
     }
+    
     while(requestedChannels > 0){
         requestedChannels --;
         uint8_t voice = MAPPER_getNextChannel(note, channel);
@@ -54,9 +60,13 @@ void MAPPER_map(uint8_t note, uint8_t velocity, uint8_t channel){
             currNoteFreq = maps[requestedChannels]->noteFreq;
         }
         
+        // Bail if this UD3 instance is not supposed to handle the frequency
         if(currNoteFreq < filter.min || currNoteFreq > filter.max) return;
         
-        if(maps[requestedChannels]->flags & MAP_ENA_PITCHBEND) currNoteFreq = ((currNoteFreq * channelData[channel].bendFactor) / 20000); else currNoteFreq *= 10;
+        if(maps[requestedChannels]->flags & MAP_ENA_PITCHBEND) 
+            currNoteFreq = ((currNoteFreq * channelData[channel].bendFactor) / 20000); 
+        else 
+            currNoteFreq *= 10;
 
 
         int32_t targetOT = ((MAX_VOL>>12) - (MIN_VOL>>12)) * maps[requestedChannels]->targetOT;
@@ -130,6 +140,8 @@ void MAPPER_map(uint8_t note, uint8_t velocity, uint8_t channel){
     }
 }
 
+// Copies pointers to the MAPTABLE_ENTRY.data that include the specified note to the dst array.
+// Returns the number of MAPTABLE_ENTRIES that were copied.
 uint8_t MAPPER_getMaps(uint8_t note, MAPTABLE_HEADER * table, MAPTABLE_DATA ** dst){
     uint8_t currScan = 0;
     uint8_t foundCount = 0;
@@ -143,6 +155,8 @@ uint8_t MAPPER_getMaps(uint8_t note, MAPTABLE_HEADER * table, MAPTABLE_DATA ** d
     return foundCount;
 }
 
+// Returns the index of the next open channel to play the specified note
+// TODO: The arguments are not currently used
 uint8_t MAPPER_getNextChannel(uint8_t note, uint8_t channel){
     uint8_t currVoice = 0;
     /*for(currVoice = 0; currVoice < MIDI_VOICECOUNT; currVoice++){
@@ -151,18 +165,21 @@ uint8_t MAPPER_getNextChannel(uint8_t note, uint8_t channel){
         }
     }*/
     
+    // Prefer a channel that is currently off
     for(currVoice = 0; currVoice < MIDI_VOICECOUNT; currVoice++){
         if(Midi_isNoteOff(currVoice)){
             return currVoice;
         }
     }
     
+    // If no channels are currently off, use one whose note is dacaying
     for(currVoice = 0; currVoice < MIDI_VOICECOUNT; currVoice++){
         if(Midi_isNoteDecaying(currVoice)){
             return currVoice;
         }
     }
     
+    // Only thing left to do is to return the channel whose note has been on the longest
     uint32_t oldestAge = 0;
     uint8_t oldestVoice = 0;
     for(currVoice = 0; currVoice < MIDI_VOICECOUNT; currVoice++){
@@ -175,16 +192,20 @@ uint8_t MAPPER_getNextChannel(uint8_t note, uint8_t channel){
     return oldestVoice;
 }
 
+// Assigns the specified program to the specified channel.  Also updates the currentMap to point to the appropriate program data.
 void MAPPER_programChangeHandler(uint8_t channel, uint8_t program){
     channelData[channel].currProgramm = program;
     channelData[channel].currentMap = MAPPER_findHeader(program);
 }
 
+// Returns a pointer to the MAPTABLE_HEADER that contains the specified MIDI program.
+// Returns a pointer to DEFMAP if the specified program could not be found.
 MAPTABLE_HEADER * MAPPER_findHeader(uint8_t prog){
     MAPTABLE_HEADER * currHeader = (MAPTABLE_HEADER *) NVM_mapMem;
     while(currHeader->listEntries != 0 && currHeader->listEntries != 0xff){
         if(currHeader->programNumber == prog) return currHeader;
         
+        // Skip over the variable number of MAPTABLE_ENTRY structs to get to the next header.
         uint8_t* calc = (uint8_t*)currHeader;
         calc += sizeof(MAPTABLE_HEADER) + sizeof(MAPTABLE_ENTRY) * currHeader->listEntries;
         currHeader = (MAPTABLE_HEADER *)calc;  //WARNING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -197,9 +218,11 @@ MAPTABLE_HEADER * MAPPER_findHeader(uint8_t prog){
     return (MAPTABLE_HEADER *) &DEFMAP;
 }
 
+// TODO: These should be made static
 MAPTABLE_HEADER * cache = 0;
 uint8_t cachedIndex = 0;
 
+// Returns a pointer to the MAPTABLE_HEADER indexed by *index*.  Returns NULL if index is out of range.
 MAPTABLE_HEADER * MAPPER_getHeader(uint8_t index){
     MAPTABLE_HEADER * currHeader = (MAPTABLE_HEADER *) NVM_mapMem;
     uint8_t currIndex = 0;
@@ -216,6 +239,7 @@ MAPTABLE_HEADER * MAPPER_getHeader(uint8_t index){
     return 0;
 }
 
+// Returns a pointer to the MAPTABLE_ENTRY indexed by *index*.  Returns NULL if index is out of range.
 MAPTABLE_ENTRY * MAPPER_getEntry(uint8_t header, uint8_t index){
     MAPTABLE_HEADER * table;
     if(cachedIndex == header && cache != 0){
@@ -225,6 +249,10 @@ MAPTABLE_ENTRY * MAPPER_getEntry(uint8_t header, uint8_t index){
     }
     
     MAPTABLE_ENTRY * entries = (MAPTABLE_ENTRY *) ((uint32_t) table + sizeof(MAPTABLE_HEADER));
+
+    // TODO: Bug: This should check that table is not NULL
+    // TODO: Why not just use:
+    // return (table && index < table->listEntries)? (entries+index): NULL;
     uint8_t currScan = 0;
     for(currScan = 0; currScan < table->listEntries; currScan++){
         if(currScan == index){

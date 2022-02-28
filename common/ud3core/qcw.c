@@ -157,6 +157,7 @@ void qcw_start(){
     // Assume duty is set to 35% and there have been 10 off cycles.  The original code will yield an on time of 10*350/500=7.  The
     // equation I propose will yield 10*350/(1000-350)=5.38.  But note that 7*100/(7+10)=41% while mine yields 5.38*100/(5.38+10)=35% (correct)
     // The original equation is correct only when the duty cycle equals 50% (so 1000-500 == 500).
+    // Beware - my new equation will divide by 0 when duty=1000.  In that case the duty cycle is 100% and there is no off time.
     uint32_t cycles_to_stop_limited = (cycles_since_last_pulse * configuration.max_qcw_duty) / 500;
     
 	if ((cycles_to_stop_limited > cycles_to_stop) || (cycles_to_stop_limited == 0)) {
@@ -170,24 +171,26 @@ void qcw_start(){
 	CyGlobalIntDisable;
 	//now enable the QCW interrupter
 	QCW_enable_Control = 1;
-	params.pwmb_psb_val = params.pwm_top - params.pwmb_start_psb_val;
+	params.pwmb_psb_val = params.pwm_top - params.pwmb_start_psb_val;   // Set phase shift to small value (full power) to get oscillation going.
 	CyGlobalIntEnable;
 }
 
-// Modulate the PWMB output by shifting the phase of the HT pulses.  val can be 0 to 256 where
-// 0 results in maximum shift (low power), and 256 results in minimum shift (full power).
+// Modulate the output by shifting the phase of the HT pulses.  val can be 1 to 255 where
+// 1 results in maximum shift (low power), and 256 results in minimum shift (full power).
 void qcw_modulate(uint16_t val){
 #if USE_DEBUG_DAC  
     if(QCW_enable_Control) DEBUG_DAC_SetValue(val); 
 #endif
     //linearize modulation value based on fb_filter_out period
+    // val=1->minimum power, val=255->maximum power
 	uint16_t shift_period = (val * (params.pwm_top - fb_filter_out)) >> 8;
+    shift_period += params.pwmb_start_psb_val;
     
 	// assign new modulation value to the params.pwmb_psb_val ram (which is transferred to the pwmb cmp register by DMA).
-	if ((shift_period + params.pwmb_start_psb_val) > (params.pwmb_start_prd - 4)) {
-		params.pwmb_psb_val = 4;    // Maximum period, minimum shift
+	if (shift_period > (params.pwmb_start_prd - 4)) {
+		params.pwmb_psb_val = 4;    // Maximum period, minimum shift, maximum power
 	} else {
-		params.pwmb_psb_val = params.pwm_top - (shift_period + params.pwmb_start_psb_val);
+		params.pwmb_psb_val = params.pwm_top - shift_period;
 	}  
 }
 
@@ -265,7 +268,8 @@ void vQCW_Timer_Callback(TimerHandle_t xTimer){
     qcw_regenerate_ramp();
     qcw_start();
     qcw_reg = 1;
-    if(param.qcw_repeat<100) param.qcw_repeat = 100;
+    if(param.qcw_repeat<100)    // TODO: Not sure why this is here.  <100 is single shot mode and this timer is not started so how can this happen?
+       param.qcw_repeat = 100;
     xTimerChangePeriod( xTimer, param.qcw_repeat / portTICK_PERIOD_MS, 0 );
 }
 
@@ -283,7 +287,7 @@ BaseType_t QCW_delete_timer(void){
 }
 
 /*****************************************************************************
-* starts the QCW mode. Spawns a timer for the automatic QCW pulses.
+* starts QCW mode. Spawns a timer for the automatic QCW pulses.
 ******************************************************************************/
 uint8_t CMD_qcw(TERMINAL_HANDLE * handle, uint8_t argCount, char ** args){
     if(argCount==0 || strcmp(args[0], "-?") == 0){
