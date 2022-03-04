@@ -290,7 +290,7 @@ void SigGen_limit(){
     uint32_t out_pw=param.pw;
 
     for(uint32_t c=0; c < MIDI_VOICECOUNT; c++){
-        uint32_t ourDuty = (((uint32)127*(uint32)param.pw)/(1270000ul/Midi_voice[c].freqCurrent));
+        uint32_t ourDuty = (((uint32_t)127*(uint32_t)param.pw)/(1270000ul/Midi_voice[c].freqCurrent));
         ourDuty = (ourDuty * Midi_voice[c].otCurrent) / (MAX_VOL>>12); //MAX_VOL>>12 = 2048  
         totalDuty += ourDuty;
     }
